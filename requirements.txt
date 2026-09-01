@@ -1,0 +1,26 @@
+fastapi>=0.115.6
+uvicorn[standard]>=0.34.0
+python-multipart>=0.0.20
+pydantic>=2.10.4
+pydantic-settings>=2.7.1
+sqlalchemy>=2.0.36
+# psycopg2-binary is required only for PostgreSQL (Docker/production) and is installed
+# separately in docker/Dockerfile against the container's Python 3.11 (wheels may not
+# yet exist for very new local Python versions). Local dev/tests use SQLite.
+
+pypdf>=5.1.0
+
+sentence-transformers>=3.3.1
+numpy>=2.2.1
+
+anthropic>=0.42.0
+
+pinecone>=5.4.2
+
+redis>=5.2.1
+
+httpx>=0.28.1
+pytest>=8.3.4
+pytest-asyncio>=0.25.0
+
+python-dotenv>=1.0.1
