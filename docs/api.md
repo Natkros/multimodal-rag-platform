@@ -155,9 +155,23 @@ status to `REINDEX_REQUIRED`. Does not reindex anything itself — pair with
     "dropped_diversity_cap": 0,
     "truncated_chunks": 0
   },
-  "query_intelligence": null
+  "query_intelligence": null,
+  "citation_validation": {
+    "total_claims": 2,
+    "supported_claims": 2,
+    "citation_correctness": 1.0,
+    "unsupported_claims": []
+  }
 }
 ```
+
+**Phase 11 — citation validation** (`CITATION_VALIDATION_ENABLED=true`, on by
+default): each cited sentence in `answer` is checked against the chunk(s) its `[n]`
+markers reference — word-overlap ratio plus exact number/proper-noun matching (see
+[ADR 0011](decisions/0011-phase11-citation-engine.md)). `citation_correctness` is
+`null` when the answer had no citations to check (e.g. abstention).
+`unsupported_claims` entries include `missing_numbers`/`missing_proper_nouns` so a
+caller can see exactly what wasn't verifiable, not just a pass/fail flag.
 
 **Phase 9 — context engineering**: `source_distribution` (always present) shows how
 many selected chunks came from each document. `dropped_low_relevance` /

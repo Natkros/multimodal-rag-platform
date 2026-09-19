@@ -88,7 +88,15 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = Field(default=None)
     llm_max_tokens: int = Field(default=1024)
     llm_temperature: float = Field(default=0.0)
-    grounding_confidence_threshold: float = Field(default=0.35)
+    grounding_confidence_threshold: float = Field(default=0.35)  # below this -> abstain entirely
+    grounding_high_confidence_threshold: float = Field(default=0.6)  # at/above this -> "high", else "low"
+
+    # --- Citation validation (Phase 11) ---
+    # Deterministic (word-overlap + exact-number/proper-noun matching) and cheap — on
+    # by default, unlike hybrid/rerank/query-intelligence, which cost real latency or
+    # need an LLM. See docs/decisions/0011-*.md.
+    citation_validation_enabled: bool = Field(default=True)
+    citation_overlap_threshold: float = Field(default=0.5)
 
     # --- Context engineering (Phase 9) ---
     context_max_tokens: int = Field(default=3000)

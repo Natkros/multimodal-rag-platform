@@ -9,12 +9,14 @@ from app.api.deps import db_dependency, settings_dependency
 from app.core.config import Settings
 from app.repositories.document_repository import DocumentRepository
 from app.schemas.query import (
+    CitationValidationStats,
     QueryIntelligenceStats,
     QueryRequest,
     QueryResponse,
     RetrievalStats,
     RetrievalTraceEntry,
     SourceRef,
+    UnsupportedClaim,
 )
 from app.services.embeddings.factory import get_embedder
 from app.services.generation.generator import generate_answer
@@ -169,6 +171,25 @@ def query(
                 retrieval_trace=retrieval_trace,
             )
             if qi_result is not None
+            else None
+        ),
+        citation_validation=(
+            CitationValidationStats(
+                total_claims=result.citation_validation.total_claims,
+                supported_claims=result.citation_validation.supported_claims,
+                citation_correctness=result.citation_validation.citation_correctness,
+                unsupported_claims=[
+                    UnsupportedClaim(
+                        sentence=c.sentence,
+                        citation_numbers=c.citation_numbers,
+                        overlap_ratio=c.overlap_ratio,
+                        missing_numbers=c.missing_numbers,
+                        missing_proper_nouns=c.missing_proper_nouns,
+                    )
+                    for c in result.citation_validation.unsupported_claims
+                ],
+            )
+            if result.citation_validation is not None
             else None
         ),
     )

@@ -25,7 +25,7 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
 ```
 `*` reranking ships in Phase 7 (opt-in, off by default — see §8b).
 
-## 3. Features (current — Phase 0–9)
+## 3. Features (current — Phase 0–11)
 
 - Upload PDF / TXT / Markdown / DOCX / HTML / images; idempotent via content-hash
   dedup (`409` on repeat upload)
@@ -85,6 +85,16 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
   any single oversized chunk instead of letting it eat the whole token budget —
   `retrieval.source_distribution` is always reported (see
   [ADR 0009](docs/decisions/0009-phase9-context-engineering.md))
+- **Citation validation** (on by default): every cited sentence in an answer is
+  checked against its cited chunk(s) — word-overlap ratio plus exact number/proper-
+  noun matching, catching fabricated figures or names even when the surrounding
+  wording overlaps heavily with the source; `citation_validation.citation_correctness`
+  in the `/query` response (see
+  [ADR 0011](docs/decisions/0011-phase11-citation-engine.md))
+- Grounded generation with configurable confidence thresholds
+  (`GROUNDING_CONFIDENCE_THRESHOLD` to abstain, `GROUNDING_HIGH_CONFIDENCE_THRESHOLD`
+  for the "high"/"low" label) and explicit uncertainty-hedging for partial/
+  conflicting evidence (see [ADR 0010](docs/decisions/0010-phase10-grounded-generation.md))
 - Configurable local embedding model (`sentence-transformers`, no API key required)
 - Vector store behind an abstraction — `local` (numpy, zero-setup) or `pinecone`
 - Dense (default) or hybrid retrieval → grounded generation (Anthropic Claude) →
@@ -348,7 +358,7 @@ docker compose up --build
 pytest tests/ -v
 ```
 
-234 tests, all passing. No external services or API keys are required — the vector
+254 tests, all passing. No external services or API keys are required — the vector
 store, DB, and embedding model all run locally by default (see
 [ADR 0001](docs/decisions/0001-phase1-stack-choices.md)). Generation-path and
 vision-caption tests mock the LLM client. OCR-dependent tests run for real against
@@ -382,9 +392,9 @@ docker/, Dockerfile, docker-compose.yml
 | 7 — Reranking (implemented, measured off by default — see §8b) | ✅ done |
 | 8 — Query intelligence (rewriting, decomposition, classification) | ✅ done |
 | 9 — Context engineering (relevance floor, diversity cap, compression) | ✅ done |
-| 10 — Grounded generation | partially in Phase 1 (abstention + citations), formalized later |
-| 11 — Citation engine (validation) | ⏳ |
-| 12 — Conversational RAG | ⏳ |
+| 10 — Grounded generation (configurable thresholds, uncertainty hedging) | ✅ done |
+| 11 — Citation engine (deterministic validation, on by default) | ✅ done |
+| 12 — Conversational RAG | ⏳ next |
 | 13 — Evaluation framework (100–300 Qs) | seed harness in Phase 1, full dataset ⏳ |
 | 14 — Failure testing | partial (corrupted files across all formats), full adversarial suite ⏳ |
 | 15 — Backend refactor | done by Phase 1's structure |

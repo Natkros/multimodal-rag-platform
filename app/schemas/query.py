@@ -67,9 +67,29 @@ class QueryIntelligenceStats(BaseModel):
     retrieval_trace: list[RetrievalTraceEntry] = []
 
 
+class UnsupportedClaim(BaseModel):
+    sentence: str
+    citation_numbers: list[int]
+    overlap_ratio: float
+    missing_numbers: list[str] = []
+    missing_proper_nouns: list[str] = []
+
+
+class CitationValidationStats(BaseModel):
+    """Deterministic check (word-overlap + exact-number/proper-noun matching) of
+    whether each cited sentence is actually supported by the chunk(s) it cites — see
+    app/services/generation/citation_validator.py and ADR 0011."""
+
+    total_claims: int
+    supported_claims: int
+    citation_correctness: float | None  # None when the answer had no citations to check
+    unsupported_claims: list[UnsupportedClaim] = []
+
+
 class QueryResponse(BaseModel):
     answer: str
     confidence: str  # "high" | "low" | "abstained"
     sources: list[SourceRef]
     retrieval: RetrievalStats
     query_intelligence: QueryIntelligenceStats | None = None
+    citation_validation: CitationValidationStats | None = None

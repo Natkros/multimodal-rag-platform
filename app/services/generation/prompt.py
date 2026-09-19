@@ -15,7 +15,12 @@ the numbered source it came from.
 Do not guess.
 4. Clearly distinguish evidence (what a source states) from inference (your own reasoning \
 connecting sources) by prefacing inferential sentences with "Based on the above,".
-5. Be concise and directly answer the question first, then support it."""
+5. If the retrieved sources only partially answer the question, or disagree with each \
+other, say so explicitly (e.g. "The sources do not specify..." or "Source [1] and \
+source [2] give different figures...") rather than picking one silently or smoothing \
+over the gap. Partial evidence should produce a hedged, partial answer — not a fully \
+confident one and not a full abstention.
+6. Be concise and directly answer the question first, then support it."""
 
 
 def build_context_block(chunks: list[RetrievedChunk]) -> str:

@@ -319,3 +319,52 @@ def test_query_diversity_cap_limits_sources_per_document(client, monkeypatch, te
     body = resp.json()
     for count in body["retrieval"]["source_distribution"].values():
         assert count <= 1
+
+
+def test_query_citation_validation_flags_fabricated_number(client, monkeypatch):
+    import app.api.routes.query as query_module
+
+    class FabricatingLLMClient:
+        def complete(self, system, user, max_tokens, temperature):
+            return "Acme's Q2 2025 revenue was $999 million [1]."
+
+    monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FabricatingLLMClient())
+    _upload(client, "revenue.txt", b"Acme's Q2 2025 revenue was $42.3 million, up 18% year over year. " * 3)
+
+    resp = client.post("/query", json={"question": "What was Acme's Q2 2025 revenue?", "top_k": 3})
+    assert resp.status_code == 200
+    body = resp.json()
+    cv = body["citation_validation"]
+    assert cv is not None
+    assert cv["total_claims"] == 1
+    assert cv["supported_claims"] == 0
+    assert cv["citation_correctness"] == 0.0
+    assert "$999" in cv["unsupported_claims"][0]["missing_numbers"]
+
+
+def test_query_citation_validation_passes_for_accurate_answer(client, monkeypatch):
+    import app.api.routes.query as query_module
+
+    class AccurateLLMClient:
+        def complete(self, system, user, max_tokens, temperature):
+            return "Acme's Q2 2025 revenue was $42.3 million [1]."
+
+    monkeypatch.setattr(query_module, "get_llm_client", lambda settings: AccurateLLMClient())
+    _upload(client, "revenue.txt", b"Acme's Q2 2025 revenue was $42.3 million, up 18% year over year. " * 3)
+
+    resp = client.post("/query", json={"question": "What was Acme's Q2 2025 revenue?", "top_k": 3})
+    assert resp.status_code == 200
+    cv = resp.json()["citation_validation"]
+    assert cv["citation_correctness"] == 1.0
+
+
+def test_query_citation_validation_absent_when_disabled(client, monkeypatch, test_settings):
+    import app.api.routes.query as query_module
+
+    monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
+    test_settings.citation_validation_enabled = False
+    _upload(client, "facts.txt", b"Acme Corporation was founded in 2010 in Austin, Texas. " * 3)
+
+    resp = client.post("/query", json={"question": "When was Acme founded?"})
+    assert resp.status_code == 200
+    assert resp.json()["citation_validation"] is None

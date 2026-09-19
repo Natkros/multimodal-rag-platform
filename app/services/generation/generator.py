@@ -4,6 +4,7 @@ import time
 from dataclasses import dataclass, field
 
 from app.core.config import Settings
+from app.services.generation.citation_validator import CitationValidationResult, validate_citations
 from app.services.generation.context_builder import build_context
 from app.services.generation.llm_client import LLMClient
 from app.services.generation.prompt import SYSTEM_PROMPT, build_user_prompt
@@ -27,6 +28,7 @@ class GenerationResult:
     dropped_low_relevance: int = 0
     dropped_diversity_cap: int = 0
     truncated_chunks: int = 0
+    citation_validation: CitationValidationResult | None = None
 
 
 def generate_answer(
@@ -65,7 +67,16 @@ def generate_answer(
     )
     elapsed_ms = (time.perf_counter() - start) * 1000
 
-    confidence = "high" if context.chunks[0].score >= 0.6 else "low"
+    confidence = "high" if context.chunks[0].score >= settings.grounding_high_confidence_threshold else "low"
+
+    citation_validation = None
+    if settings.citation_validation_enabled:
+        citation_validation = validate_citations(
+            answer,
+            [c.text for c in context.chunks],
+            overlap_threshold=settings.citation_overlap_threshold,
+        )
+
     return GenerationResult(
         answer=answer,
         confidence=confidence,
@@ -78,4 +89,5 @@ def generate_answer(
         dropped_low_relevance=context.dropped_low_relevance,
         dropped_diversity_cap=context.dropped_diversity_cap,
         truncated_chunks=context.truncated_chunks,
+        citation_validation=citation_validation,
     )
