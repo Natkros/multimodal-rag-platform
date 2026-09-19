@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Multimodal RAG Platform
 
 A production-grade Retrieval-Augmented Generation platform for heterogeneous enterprise
@@ -223,3 +224,6 @@ docker/, Dockerfile, docker-compose.yml
 | 24 — Cloud deployment | ⏳ |
 | 25 — Load testing | ⏳ |
 | 26–30 — Advanced/agentic RAG, dashboard, experiment tracking, final demo | ⏳ |
+=======
+# multimodal-rag-platform
+>>>>>>> f94b846846a2abaa7da41232f1892b91fb2aa7cd
