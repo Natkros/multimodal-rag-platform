@@ -460,7 +460,7 @@ docker/, Dockerfile, docker-compose.yml
 | 12 — Conversational RAG (real DB-backed conversation persistence) | ✅ done |
 | 13 — Evaluation framework (100–300 Qs) | 57 Qs, expanded from 12 (corpus-limited — see ADR 0013) ⏳ partial |
 | 14 — Failure testing | ✅ done — corrupted files, path traversal (found + fixed), extreme/malicious input, prompt injection (tested + honestly disclosed limits) |
-| 15 — Backend refactor | done by Phase 1's structure |
+| 15 — Backend refactor | ✅ done — audited the layering, extracted the one real violation found (`/query`'s orchestration into `app/services/query_service.py`) |
 | 16 — Async job queue | ⏳ (Phase 1 uses BackgroundTasks) |
 | 17 — Caching | ⏳ |
 | 18 — Security | ⏳ |

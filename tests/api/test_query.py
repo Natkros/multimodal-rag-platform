@@ -17,7 +17,7 @@ def test_query_without_llm_configured_returns_503(client):
 
 
 def test_query_with_no_matching_documents_abstains(client, monkeypatch):
-    import app.api.routes.query as query_module
+    import app.services.query_service as query_module
 
     monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
     resp = client.post("/query", json={"question": "What is the capital of France?"})
@@ -29,7 +29,7 @@ def test_query_with_no_matching_documents_abstains(client, monkeypatch):
 
 
 def test_query_grounded_answer_with_sources(client, monkeypatch):
-    import app.api.routes.query as query_module
+    import app.services.query_service as query_module
 
     monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
 
@@ -51,7 +51,7 @@ def test_query_validates_empty_question(client):
 
 
 def test_query_document_scoped_filtering(client, monkeypatch):
-    import app.api.routes.query as query_module
+    import app.services.query_service as query_module
 
     monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
 
@@ -70,7 +70,7 @@ def test_query_document_scoped_filtering(client, monkeypatch):
 
 
 def test_query_routes_table_question_to_table_chunk(client, monkeypatch, sample_docs_dir):
-    import app.api.routes.query as query_module
+    import app.services.query_service as query_module
 
     monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
 
@@ -86,7 +86,7 @@ def test_query_routes_table_question_to_table_chunk(client, monkeypatch, sample_
 
 
 def test_query_routes_generic_question_without_content_type_restriction(client, monkeypatch):
-    import app.api.routes.query as query_module
+    import app.services.query_service as query_module
 
     monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
     _upload(client, "facts.txt", b"Acme Corporation was founded in 2010 in Austin, Texas. " * 3)
@@ -97,7 +97,7 @@ def test_query_routes_generic_question_without_content_type_restriction(client, 
 
 
 def test_query_with_hybrid_retrieval_mode(client, monkeypatch, test_settings):
-    import app.api.routes.query as query_module
+    import app.services.query_service as query_module
 
     monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
     test_settings.retrieval_mode = "hybrid"
@@ -112,7 +112,7 @@ def test_query_with_hybrid_retrieval_mode(client, monkeypatch, test_settings):
 
 
 def test_query_with_reranking_enabled_surfaces_stats(client, monkeypatch, test_settings):
-    import app.api.routes.query as query_module
+    import app.services.query_service as query_module
 
     monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
     test_settings.reranker_enabled = True
@@ -129,7 +129,7 @@ def test_query_with_reranking_enabled_surfaces_stats(client, monkeypatch, test_s
 
 
 def test_query_without_reranking_reports_none_latency(client, monkeypatch):
-    import app.api.routes.query as query_module
+    import app.services.query_service as query_module
 
     monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
     _upload(client, "facts.txt", b"Acme Corporation was founded in 2010 in Austin, Texas. " * 3)
@@ -145,7 +145,7 @@ def test_query_reranking_corrects_misleading_top_result(client, monkeypatch, tes
     """End-to-end: seed a corpus where a literal keyword overlap outranks the
     actually-relevant chunk, and confirm reranking (not just unit-level) fixes it
     through the real /query path."""
-    import app.api.routes.query as query_module
+    import app.services.query_service as query_module
 
     monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
 
@@ -188,15 +188,15 @@ class SmartFakeLLMClient:
 
 
 def _patch_llm_everywhere(monkeypatch, fake_client):
-    import app.api.routes.query as query_module
     import app.services.query_intelligence.pipeline as pipeline_module
+    import app.services.query_service as query_module
 
     monkeypatch.setattr(query_module, "get_llm_client", lambda settings: fake_client)
     monkeypatch.setattr(pipeline_module, "get_llm_client", lambda settings: fake_client)
 
 
 def test_query_intelligence_absent_by_default(client, monkeypatch):
-    import app.api.routes.query as query_module
+    import app.services.query_service as query_module
 
     monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
     _upload(client, "facts.txt", b"Acme Corporation was founded in 2010 in Austin, Texas. " * 3)
@@ -286,7 +286,7 @@ def test_query_auto_scopes_to_mentioned_document(client, monkeypatch, test_setti
 
 
 def test_query_reports_source_distribution(client, monkeypatch):
-    import app.api.routes.query as query_module
+    import app.services.query_service as query_module
 
     monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
     _upload(client, "facts.txt", b"Acme Corporation was founded in 2010 in Austin, Texas. " * 5)
@@ -301,7 +301,7 @@ def test_query_reports_source_distribution(client, monkeypatch):
 
 
 def test_query_diversity_cap_limits_sources_per_document(client, monkeypatch, test_settings):
-    import app.api.routes.query as query_module
+    import app.services.query_service as query_module
 
     monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
     test_settings.context_max_chunks_per_document = 1
@@ -322,7 +322,7 @@ def test_query_diversity_cap_limits_sources_per_document(client, monkeypatch, te
 
 
 def test_query_citation_validation_flags_fabricated_number(client, monkeypatch):
-    import app.api.routes.query as query_module
+    import app.services.query_service as query_module
 
     class FabricatingLLMClient:
         def complete(self, system, user, max_tokens, temperature):
@@ -343,7 +343,7 @@ def test_query_citation_validation_flags_fabricated_number(client, monkeypatch):
 
 
 def test_query_citation_validation_passes_for_accurate_answer(client, monkeypatch):
-    import app.api.routes.query as query_module
+    import app.services.query_service as query_module
 
     class AccurateLLMClient:
         def complete(self, system, user, max_tokens, temperature):
@@ -359,7 +359,7 @@ def test_query_citation_validation_passes_for_accurate_answer(client, monkeypatc
 
 
 def test_query_citation_validation_absent_when_disabled(client, monkeypatch, test_settings):
-    import app.api.routes.query as query_module
+    import app.services.query_service as query_module
 
     monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
     test_settings.citation_validation_enabled = False
