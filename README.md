@@ -293,6 +293,15 @@ No load-test numbers exist yet (Phase 20/25). Per-request latency breakdown
 (`retrieval_latency_ms`, `generation_latency_ms`, `total_latency_ms`) is already
 returned by `POST /query` — see [docs/api.md](docs/api.md).
 
+**Phase 19 — observability**: `GET /metrics` (Prometheus text format, unauthenticated
+like `/health`/`/ready`) exposes `http_requests_total` and
+`http_request_duration_seconds` (labeled by method + route template, not literal
+URL — keeps cardinality bounded), plus `retrieval_cache_total` (Phase 17 cache
+hit/miss) and `rate_limit_rejections_total` (Phase 18). `LOG_JSON=true` switches
+logging to one JSON object per line; a request-logging middleware logs every
+request's method/path/status/duration regardless. See
+[ADR 0019](docs/decisions/0019-phase19-observability.md).
+
 **Phase 17 — retrieval caching** (opt-in, `CACHE_ENABLED=true`, off by default): a
 Redis cache wraps retrieval (embedding + vector/BM25 search), keyed on
 query+top_k+document_ids+retrieval_mode+embedding_model. A repeated identical query
@@ -497,7 +506,7 @@ docker/, Dockerfile, docker-compose.yml
 | 16 — Async job queue | ✅ done — opt-in Redis/RQ queue (`JOB_QUEUE_BACKEND=rq`), `background_tasks` stays the default |
 | 17 — Caching | ✅ done — opt-in Redis retrieval cache (`CACHE_ENABLED=true`), bounded-staleness tradeoff disclosed in ADR 0017 |
 | 18 — Security | ✅ done — opt-in API key auth + Redis rate limiting, always-on security headers |
-| 19 — Observability | partial (latency stats), full metrics/logging ⏳ |
+| 19 — Observability | ✅ done — `GET /metrics` (Prometheus), structured JSON logging (`LOG_JSON=true`), per-request logging middleware |
 | 20 — Performance engineering | ⏳ |
 | 21 — Dockerization | ✅ done |
 | 22 — Testing | ✅ ongoing, expands every phase |

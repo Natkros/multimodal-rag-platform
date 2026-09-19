@@ -150,15 +150,18 @@ class CachingRetriever:
         self, query: str, top_k: int, document_ids: list[str] | None = None
     ) -> RetrievalResult:
         from app.services.caching.cache import cache_get, cache_set
+        from app.services.observability.metrics import retrieval_cache_total
 
         key = self._cache_key(query, top_k, document_ids)
         cached = cache_get(self.settings, key)
         if cached is not None:
+            retrieval_cache_total.labels(result="hit").inc()
             data = json.loads(cached)
             return RetrievalResult(
                 chunks=[RetrievedChunk(**c) for c in data["chunks"]],
                 matched_content_types=data["matched_content_types"],
             )
+        retrieval_cache_total.labels(result="miss").inc()
 
         result = self.inner.retrieve_with_classification(query, top_k, document_ids)
         serialized = json.dumps(

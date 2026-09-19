@@ -26,3 +26,13 @@ def ready(response: Response, db: Session = Depends(db_dependency)) -> dict:
     all_ok = all(v == "ok" for v in checks.values())
     response.status_code = 200 if all_ok else 503
     return {"status": "ok" if all_ok else "degraded", "checks": checks}
+
+
+@router.get("/metrics")
+def metrics() -> Response:
+    """Phase 19: Prometheus text exposition format. Unauthenticated like /health and
+    /ready (app/main.py) — a Prometheus scraper typically hits this without an API
+    key, the same operational-infra reasoning as the other two."""
+    from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)

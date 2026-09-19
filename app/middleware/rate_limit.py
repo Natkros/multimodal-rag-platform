@@ -17,7 +17,7 @@ from app.core.config import Settings
 
 logger = logging.getLogger(__name__)
 
-_EXEMPT_PATHS = {"/health", "/ready", "/docs", "/openapi.json", "/redoc"}
+_EXEMPT_PATHS = {"/health", "/ready", "/metrics", "/docs", "/openapi.json", "/redoc"}
 
 
 def _client_identifier(request: Request) -> str:
@@ -55,6 +55,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         if count > self.settings.rate_limit_requests_per_minute:
+            from app.services.observability.metrics import rate_limit_rejections_total
+
+            rate_limit_rejections_total.inc()
             return JSONResponse(
                 status_code=429,
                 content={"detail": "Rate limit exceeded. Try again in a moment."},

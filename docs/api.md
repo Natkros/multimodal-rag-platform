@@ -265,3 +265,11 @@ Liveness only — process is up. `200 {"status": "ok"}`.
 
 Readiness — checks DB and vector store connectivity. `200` or `503` with per-dependency
 detail.
+
+## GET /metrics
+
+Phase 19. Prometheus text exposition format. Unauthenticated and exempt from rate
+limiting, same as `/health`/`/ready`. Series: `http_requests_total{method,path,status_code}`,
+`http_request_duration_seconds{method,path}` (`path` is the route template, e.g.
+`/documents/{document_id}`, not the literal resolved URL), `retrieval_cache_total{result="hit"|"miss"}`,
+`rate_limit_rejections_total`.

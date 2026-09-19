@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
@@ -9,11 +8,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.deps import require_api_key
 from app.api.routes import documents, health, query
 from app.core.config import get_settings
+from app.middleware.observability import ObservabilityMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.models.db import init_db
-
-logging.basicConfig(level=get_settings().log_level)
+from app.services.observability.logging_config import configure_logging
 
 
 @asynccontextmanager
@@ -29,6 +28,7 @@ def create_app() -> FastAPI:
     # snapshot from first import would silently keep using stale config (CORS
     # origins, and now Phase 18's api_key/rate_limit settings) for every later test.
     settings = get_settings()
+    configure_logging(settings)
 
     app = FastAPI(
         title="Multimodal RAG Platform",
@@ -38,6 +38,7 @@ def create_app() -> FastAPI:
     )
 
     app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(ObservabilityMiddleware)
     app.add_middleware(RateLimitMiddleware, settings=settings)
     app.add_middleware(
         CORSMiddleware,
