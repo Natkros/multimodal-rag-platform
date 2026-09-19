@@ -31,6 +31,7 @@ anthropic>=0.42.0
 pinecone>=5.4.2
 
 redis>=5.2.1
+rq>=1.16.2
 
 httpx>=0.28.1
 pytest>=8.3.4

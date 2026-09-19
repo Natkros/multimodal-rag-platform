@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 
 def test_health(client):
@@ -51,6 +52,34 @@ def test_upload_unsupported_file_type_rejected(client):
 def test_upload_empty_file_rejected(client):
     resp = client.post("/documents/upload", files={"file": ("empty.txt", b"", "text/plain")})
     assert resp.status_code == 400
+
+
+def test_upload_with_rq_backend_enqueues_instead_of_running_in_process(client, test_settings, monkeypatch):
+    """JOB_QUEUE_BACKEND=rq should call enqueue_ingestion instead of
+    BackgroundTasks.add_task — verified by mocking enqueue_ingestion rather than
+    requiring a real Redis (that path is covered end-to-end, with a real Redis and a
+    real RQ worker, by tests/integration/test_job_queue_rq.py, skipped when no Redis
+    is reachable). Since the job is never actually processed here (the mock is a
+    no-op), the document correctly stays UPLOADED, not INDEXED."""
+    import app.api.routes.documents as documents_module
+
+    monkeypatch.setattr(test_settings, "job_queue_backend", "rq")
+    mock_enqueue = MagicMock()
+    monkeypatch.setattr(documents_module, "enqueue_ingestion", mock_enqueue)
+
+    resp = client.post(
+        "/documents/upload", files={"file": ("rq_test.txt", b"Acme facts for RQ routing test.", "text/plain")}
+    )
+    assert resp.status_code == 202
+    document_id = resp.json()["document_id"]
+
+    mock_enqueue.assert_called_once()
+    args = mock_enqueue.call_args[0]
+    assert args[0] == document_id
+    assert args[1] == "txt"
+
+    get_resp = client.get(f"/documents/{document_id}")
+    assert get_resp.json()["processing_status"] == "UPLOADED"
 
 
 def test_list_documents_empty_initially(client):

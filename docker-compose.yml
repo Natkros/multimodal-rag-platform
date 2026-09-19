@@ -70,10 +70,36 @@ services:
     depends_on:
       - api
 
-  # NOTE: a dedicated `worker` service (Redis/RQ-backed) ships in Phase 16. Phase 1
-  # ingestion runs in-process on `api` via FastAPI BackgroundTasks — see
-  # docs/decisions/0001-phase1-stack-choices.md. Adding an idle worker container here
-  # now would be unused complexity, not a real capability.
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "workers/ingestion_worker.py"]
+    environment:
+      DATABASE_URL: postgresql://raguser:ragpass@postgres:5432/ragdb
+      REDIS_URL: redis://redis:6379/0
+      JOB_QUEUE_BACKEND: rq
+      VECTOR_STORE: ${VECTOR_STORE:-local}
+      PINECONE_API_KEY: ${PINECONE_API_KEY:-}
+      PINECONE_INDEX: ${PINECONE_INDEX:-multimodal-rag}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-local}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+      LLM_MODEL: ${LLM_MODEL:-claude-sonnet-5}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LOCAL_VECTOR_STORE_DIR: /app/data/vector_store
+      UPLOAD_DIR: /app/data/uploads
+    volumes:
+      - api_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # NOTE: this worker service only does something when the api container also has
+    # JOB_QUEUE_BACKEND=rq set (default is background_tasks, Phase 1's in-process
+    # behavior) — see docs/decisions/0016-phase16-async-job-queue.md. Set
+    # JOB_QUEUE_BACKEND=rq on both `api` and `worker` to actually use it.
 
 volumes:
   postgres_data:

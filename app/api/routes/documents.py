@@ -16,11 +16,32 @@ from app.schemas.documents import (
     JobResponse,
 )
 from app.services.ingestion.pipeline import run_ingestion
+from app.services.ingestion.queue import enqueue_ingestion
 from app.services.ingestion.staleness import find_and_flag_stale_documents
 from app.services.retrieval.factory import get_sparse_index, get_vector_store
 from app.utils.hashing import classify_file_type, deterministic_document_id, safe_filename, sha256_bytes
 
 router = APIRouter(tags=["documents"])
+
+
+def _schedule_ingestion(
+    background_tasks: BackgroundTasks,
+    settings: Settings,
+    upload_path,
+    document_id: str,
+    file_type: str,
+    raw_bytes: bytes,
+    filename: str,
+    job_id: str,
+) -> None:
+    """Phase 16: routes to the Redis/RQ queue when opted in
+    (`JOB_QUEUE_BACKEND=rq`), otherwise preserves Phase 1's in-process
+    `BackgroundTasks` behavior exactly — see
+    docs/decisions/0016-phase16-async-job-queue.md."""
+    if settings.job_queue_backend == "rq":
+        enqueue_ingestion(document_id, file_type, upload_path, filename, settings, job_id)
+    else:
+        background_tasks.add_task(run_ingestion, document_id, file_type, raw_bytes, filename, settings, job_id)
 
 
 @router.post("/documents/upload", status_code=202)
@@ -70,17 +91,17 @@ async def upload_document(
     job = repo.create_job(Job(document_id=document.document_id, job_type="ingest", status="queued"))
 
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
-    (settings.upload_dir / f"{document.document_id}_{safe_filename(document.filename)}").write_bytes(
-        raw_bytes
-    )
+    upload_path = settings.upload_dir / f"{document.document_id}_{safe_filename(document.filename)}"
+    upload_path.write_bytes(raw_bytes)
 
-    background_tasks.add_task(
-        run_ingestion,
+    _schedule_ingestion(
+        background_tasks,
+        settings,
+        upload_path,
         document.document_id,
         file_type,
         raw_bytes,
         document.filename,
-        settings,
         job.job_id,
     )
 
@@ -148,13 +169,14 @@ def reindex_document(
     repo.update_status(document_id, "PROCESSING")
     job = repo.create_job(Job(document_id=document_id, job_type="reindex", status="queued"))
 
-    background_tasks.add_task(
-        run_ingestion,
+    _schedule_ingestion(
+        background_tasks,
+        settings,
+        raw_path,
         document_id,
         doc.file_type,
         raw_path.read_bytes(),
         doc.filename,
-        settings,
         job.job_id,
     )
     return {"document_id": document_id, "status": "PROCESSING", "job_id": job.job_id}

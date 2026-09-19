@@ -35,6 +35,14 @@ class Settings(BaseSettings):
     cache_enabled: bool = Field(default=False)
     cache_ttl_seconds: int = Field(default=3600)
 
+    # --- Job queue (Phase 16) ---
+    # "background_tasks" (default) preserves Phase 1's in-process behavior exactly;
+    # "rq" enqueues onto Redis via app/services/ingestion/queue.py for a real,
+    # persistent, multi-worker queue — see docs/decisions/0016-phase16-async-job-queue.md.
+    job_queue_backend: str = Field(default="background_tasks")
+    job_queue_name: str = Field(default="ingestion")
+    job_queue_timeout_seconds: int = Field(default=600)
+
     # --- Uploads ---
     max_upload_size_bytes: int = Field(default=25 * 1024 * 1024)  # 25 MB
     allowed_file_types: tuple[str, ...] = Field(

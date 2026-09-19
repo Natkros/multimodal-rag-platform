@@ -338,6 +338,13 @@ Local: `docker compose up` (see [docs/deployment.md](docs/deployment.md)). **No 
 deployment exists yet** — that file says so explicitly and will only claim otherwise
 once Phase 21/24 actually ship it.
 
+`docker-compose.yml` includes a `worker` service (Phase 16, same image as `api`,
+running `workers/ingestion_worker.py`) — it only does something once
+`JOB_QUEUE_BACKEND=rq` is set on both `api` and `worker`; the default
+(`background_tasks`) processes ingestion in-process on `api`, same as every prior
+phase, and the worker container sits idle. See
+[ADR 0016](docs/decisions/0016-phase16-async-job-queue.md).
+
 ## 13. API Documentation
 
 Full contracts: [docs/api.md](docs/api.md). Interactive OpenAPI docs at
@@ -461,7 +468,7 @@ docker/, Dockerfile, docker-compose.yml
 | 13 — Evaluation framework (100–300 Qs) | 57 Qs, expanded from 12 (corpus-limited — see ADR 0013) ⏳ partial |
 | 14 — Failure testing | ✅ done — corrupted files, path traversal (found + fixed), extreme/malicious input, prompt injection (tested + honestly disclosed limits) |
 | 15 — Backend refactor | ✅ done — audited the layering, extracted the one real violation found (`/query`'s orchestration into `app/services/query_service.py`) |
-| 16 — Async job queue | ⏳ (Phase 1 uses BackgroundTasks) |
+| 16 — Async job queue | ✅ done — opt-in Redis/RQ queue (`JOB_QUEUE_BACKEND=rq`), `background_tasks` stays the default |
 | 17 — Caching | ⏳ |
 | 18 — Security | ⏳ |
 | 19 — Observability | partial (latency stats), full metrics/logging ⏳ |
