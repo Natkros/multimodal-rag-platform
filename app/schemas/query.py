@@ -24,12 +24,14 @@ class RetrievalStats(BaseModel):
     selected_chunks: int
     context_tokens: int
     retrieval_latency_ms: float
+    reranking_latency_ms: float | None = None  # None means reranking was not applied
     generation_latency_ms: float
     total_latency_ms: float
     # Content type(s) the query's wording pointed retrieval at — [] means an
     # unrestricted ("hybrid") search across text/table/image. See
     # app/services/retrieval/query_classifier.py.
     matched_content_types: list[str] = []
+    reranked: bool = False  # RERANKER_ENABLED at request time — see Phase 7 / ADR 0007
 
 
 class QueryResponse(BaseModel):

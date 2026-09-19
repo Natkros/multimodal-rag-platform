@@ -143,3 +143,31 @@ query instead of one. On this project's scale that's still fast in absolute term
 whether the ranking-quality gain is worth 2-3x retrieval latency at production scale is
 exactly the kind of tradeoff Phase 20 (performance engineering) and Phase 25 (load
 testing) exist to answer with real numbers, not guessed here.
+
+## Phase 7: Reranking — a measured negative result
+
+Same reasoning as Phase 6 applies to methodology (reranking doesn't move chunk
+boundaries, so exact chunk_id metrics against `expected_chunks` stay valid). Full
+method: [ADR 0007](decisions/0007-phase7-reranking.md).
+
+`scripts/compare_reranking.py` holds `RETRIEVAL_MODE=hybrid` fixed (Phase 6's
+best-measured mode) and only varies `RERANKER_ENABLED`
+(`cross-encoder/ms-marco-MiniLM-L-6-v2`, candidate pool 30, final top_k 5):
+
+| Config | Recall@5 | MRR | nDCG@5 | Retrieval p50 | Rerank p50 | Total p50 |
+|---|---:|---:|---:|---:|---:|---:|
+| hybrid, no rerank | 1.000 | 0.875 | 0.906 | 38.6 ms | 0 ms | 38.6 ms |
+| hybrid + rerank | 1.000 | 0.858 | 0.893 | 42.9 ms | 1605.1 ms | 1648.0 ms |
+
+**Reranking made ranking quality very slightly worse** on this seed set (MRR
+0.875→0.858, nDCG@5 0.906→0.893) while adding ~42x total latency. Reported exactly as
+measured — the project rule is "do not assume reranking improves the system; prove it
+experimentally," and here it genuinely didn't. Most likely explanation: the reranker
+is trained on MS MARCO web passage ranking, a different domain/style than this
+project's small structured corpus, and hybrid retrieval was already ranking these 12
+questions about as well as a 5-way top-K permits — leaving the reranker nothing to fix
+and some domain-mismatch noise to introduce. This is not a verdict on cross-encoder
+reranking in general (it's well-established for good reason); it's a verdict on *this*
+reranker, on *this* small dataset, at *this* latency cost. `RERANKER_ENABLED=false`
+stays the default until Phase 13's larger evaluation set — or a domain-appropriate
+reranker — produces a different measured result.

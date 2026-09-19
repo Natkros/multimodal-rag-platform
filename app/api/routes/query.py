@@ -11,6 +11,7 @@ from app.schemas.query import QueryRequest, QueryResponse, RetrievalStats, Sourc
 from app.services.embeddings.factory import get_embedder
 from app.services.generation.generator import generate_answer
 from app.services.generation.llm_client import LLMNotConfiguredError, get_llm_client
+from app.services.reranking.reranker import get_reranker
 from app.services.retrieval.factory import get_retriever, get_vector_store
 
 router = APIRouter(tags=["query"])
@@ -28,12 +29,26 @@ def query(
     vector_store = get_vector_store(settings, embedder.dimension)
     retriever = get_retriever(settings, embedder, vector_store)
 
+    # With reranking on, retrieve a wider candidate pool than the caller asked for —
+    # the reranker needs something to actually choose among — and trim to top_k only
+    # after rescoring. Without it, retrieve exactly top_k as before (unchanged
+    # Phase 1-6 behavior).
+    pool_k = max(request.top_k, settings.rerank_candidate_pool) if settings.reranker_enabled else request.top_k
+
     retrieval_start = time.perf_counter()
     retrieval_result = retriever.retrieve_with_classification(
-        request.question, top_k=request.top_k, document_ids=request.document_ids
+        request.question, top_k=pool_k, document_ids=request.document_ids
     )
-    retrieved = retrieval_result.chunks
     retrieval_latency_ms = (time.perf_counter() - retrieval_start) * 1000
+
+    reranking_latency_ms = None
+    if settings.reranker_enabled:
+        rerank_start = time.perf_counter()
+        reranker = get_reranker(settings)
+        retrieved = reranker.rerank(request.question, retrieval_result.chunks, top_k=request.top_k)
+        reranking_latency_ms = (time.perf_counter() - rerank_start) * 1000
+    else:
+        retrieved = retrieval_result.chunks[: request.top_k]
 
     try:
         llm_client = get_llm_client(settings)
@@ -63,8 +78,10 @@ def query(
             selected_chunks=result.selected_count,
             context_tokens=result.context_tokens,
             retrieval_latency_ms=round(retrieval_latency_ms, 2),
+            reranking_latency_ms=round(reranking_latency_ms, 2) if reranking_latency_ms is not None else None,
             generation_latency_ms=round(result.generation_latency_ms, 2),
             total_latency_ms=round(total_latency_ms, 2),
             matched_content_types=retrieval_result.matched_content_types,
+            reranked=settings.reranker_enabled,
         ),
     )

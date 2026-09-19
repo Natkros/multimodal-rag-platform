@@ -145,15 +145,24 @@ status to `REINDEX_REQUIRED`. Does not reindex anything itself — pair with
     "selected_chunks": 3,
     "context_tokens": 412,
     "retrieval_latency_ms": 38.2,
+    "reranking_latency_ms": null,
     "generation_latency_ms": 812.4,
     "total_latency_ms": 861.0,
-    "matched_content_types": []
+    "matched_content_types": [],
+    "reranked": false
   }
 }
 ```
 
 If evidence is insufficient, `answer` is a fixed abstention string and `sources` is `[]`
 (see [docs/architecture.md](architecture.md) §9 / Phase 10 grounding rules).
+
+**Phase 7 — reranking**: `retrieval.reranked` reflects `RERANKER_ENABLED` at request
+time (default `false`); `retrieval.reranking_latency_ms` is `null` when reranking
+wasn't applied. When enabled, a wider candidate pool (`RERANK_CANDIDATE_POOL`, default
+30) is retrieved and rescored by a local cross-encoder before trimming to `top_k` —
+measured to *not* improve ranking quality on this project's seed dataset (see
+[ADR 0007](decisions/0007-phase7-reranking.md)), which is why it defaults to off.
 
 **Phase 5 — multimodal routing**: `retrieval.matched_content_types` shows which of
 `text`/`table`/`image` the question's wording pointed retrieval at — `[]` means an

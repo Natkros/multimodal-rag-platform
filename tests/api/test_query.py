@@ -109,3 +109,57 @@ def test_query_with_hybrid_retrieval_mode(client, monkeypatch, test_settings):
     body = resp.json()
     assert len(body["sources"]) >= 1
     assert body["retrieval"]["retrieved_chunks"] >= 1
+
+
+def test_query_with_reranking_enabled_surfaces_stats(client, monkeypatch, test_settings):
+    import app.api.routes.query as query_module
+
+    monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
+    test_settings.reranker_enabled = True
+
+    _upload(client, "facts.txt", b"Acme Corporation was founded in 2010 in Austin, Texas. " * 3)
+
+    resp = client.post("/query", json={"question": "When was Acme founded?", "top_k": 3})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["retrieval"]["reranked"] is True
+    assert body["retrieval"]["reranking_latency_ms"] is not None
+    assert body["retrieval"]["reranking_latency_ms"] >= 0
+    assert len(body["sources"]) <= 3
+
+
+def test_query_without_reranking_reports_none_latency(client, monkeypatch):
+    import app.api.routes.query as query_module
+
+    monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
+    _upload(client, "facts.txt", b"Acme Corporation was founded in 2010 in Austin, Texas. " * 3)
+
+    resp = client.post("/query", json={"question": "When was Acme founded?", "top_k": 3})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["retrieval"]["reranked"] is False
+    assert body["retrieval"]["reranking_latency_ms"] is None
+
+
+def test_query_reranking_corrects_misleading_top_result(client, monkeypatch, test_settings):
+    """End-to-end: seed a corpus where a literal keyword overlap outranks the
+    actually-relevant chunk, and confirm reranking (not just unit-level) fixes it
+    through the real /query path."""
+    import app.api.routes.query as query_module
+
+    monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
+
+    _upload(
+        client,
+        "distractor.txt",
+        b"The word Paris appears here but this document is entirely about growing "
+        b"bananas and other tropical fruit cultivation techniques. Paris Paris Paris.",
+    )
+    _upload(client, "answer.txt", b"The capital city of France is Paris, a major European city.")
+
+    test_settings.reranker_enabled = True
+    resp = client.post("/query", json={"question": "What is the capital of France?", "top_k": 1})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["sources"]) == 1
+    assert body["sources"][0]["document_name"] == "answer.txt"

@@ -23,9 +23,9 @@ ingestion/retrieval, and deployment diagrams (Mermaid). Summary:
 Upload → validate/hash → extract → normalize → chunk → embed → index (vector store)
 Query  → embed → retrieve → (rerank*) → build context → LLM → cite → answer
 ```
-`*` reranking ships in Phase 7.
+`*` reranking ships in Phase 7 (opt-in, off by default — see §8b).
 
-## 3. Features (current — Phase 0–6)
+## 3. Features (current — Phase 0–7)
 
 - Upload PDF / TXT / Markdown / DOCX / HTML / images; idempotent via content-hash
   dedup (`409` on repeat upload)
@@ -64,6 +64,12 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
   measured to raise MRR 0.750→0.875 and nDCG@5 0.812→0.906 over dense-only on this
   corpus, at ~2.8x retrieval latency (see §8 and
   [ADR 0006](docs/decisions/0006-phase6-hybrid-search.md))
+- **Reranking** (opt-in, `RERANKER_ENABLED=true`): a local cross-encoder
+  (`cross-encoder/ms-marco-MiniLM-L-6-v2`) rescoring a wider candidate pool (default
+  30) down to the final top-K — measured honestly, not assumed to help: on this
+  corpus it made ranking *very slightly worse* (MRR 0.875→0.858) at ~42x latency, a
+  real negative result reported as such (see §8 and
+  [ADR 0007](docs/decisions/0007-phase7-reranking.md))
 - Configurable local embedding model (`sentence-transformers`, no API key required)
 - Vector store behind an abstraction — `local` (numpy, zero-setup) or `pinecone`
 - Dense (default) or hybrid retrieval → grounded generation (Anthropic Claude) →
@@ -83,6 +89,7 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
 | Embeddings | `sentence-transformers/all-MiniLM-L6-v2` (configurable) | runs locally, no API key needed to develop/test; swappable via `EMBEDDING_PROVIDER` |
 | Vector store | Pinecone (prod) / in-process cosine store (dev, default) | brief names Pinecone; abstraction means CI/onboarding never needs a live account — see [ADR 0001](docs/decisions/0001-phase1-stack-choices.md) |
 | Sparse retrieval | `rank_bm25` (BM25Okapi), local, disk-persisted | the brief names BM25 itself, not a hosted search engine — no cloud/local split needed the way the vector store had one; see [ADR 0006](docs/decisions/0006-phase6-hybrid-search.md) |
+| Reranking | `sentence-transformers` `CrossEncoder` (`ms-marco-MiniLM-L-6-v2`) | local, no per-request API cost — same reasoning as embeddings/OCR/BM25; see [ADR 0007](docs/decisions/0007-phase7-reranking.md) |
 | LLM | Anthropic Claude, model configurable | strong grounded-generation instruction following |
 | DB | PostgreSQL (prod) / SQLite (dev, tests) | same SQLAlchemy models, zero-setup local dev |
 | PDF extraction | `pypdf` | lightweight, pure-Python, no system dependencies |
@@ -147,7 +154,7 @@ from Recall/MRR rather than silently averaged in), `all-MiniLM-L6-v2` embeddings
 | Dense, Phase 1 corpus (4 docs) | 1.00 | 0.875 | 0.906 | 12.7 ms |
 | Dense, Phase 4 corpus (8 docs, incl. OCR'd scan + OCR'd image) | 1.00 | 0.750 | 0.812 | 15.0 ms |
 | **Hybrid (dense + BM25), Phase 4 corpus** | 1.00 | **0.875** | **0.906** | 37.9 ms |
-| Hybrid + Reranker (Phase 7) | not yet implemented | | | |
+| Hybrid + Reranker, Phase 4 corpus | 1.00 | 0.858 | 0.893 | 1648.0 ms |
 
 Reproduce: `python scripts/run_eval.py` (full report incl. per-question rows written to
 `evaluation/reports/`). Recall@5 of 1.0 on a 10-question seed set is expected and not
@@ -156,11 +163,10 @@ exists to prove the harness is wired correctly end-to-end, not as a headline num
 The MRR/nDCG dip between the first two rows is a real, honest finding, not noise:
 adding Phase 4's OCR'd scanned PDF and OCR'd chart as genuine retrieval candidates
 gives the retriever more chunks that can plausibly rank above the "correct" one for a
-few questions. **Hybrid search recovers that entire dip** (see the dedicated table in
-§8a below) — BM25's exact lexical matching breaks ties dense embeddings alone
-couldn't, at the cost of ~3x retrieval latency. The bigger signal comes from Phase 7's
-*comparative* delta once reranking is added, and once the dataset grows (Phase 13) to
-harder multi-document/table/image questions.
+few questions. **Hybrid search recovers that entire dip** (§8a) — BM25's exact lexical
+matching breaks ties dense embeddings alone couldn't, at ~3x retrieval latency. Adding
+a reranker on top (§8b) did **not** help further on this dataset — a genuine negative
+result, reported as measured rather than assumed away.
 
 ### 8a. Phase 6 — Dense vs. Hybrid (Dense + BM25) Retrieval
 
@@ -182,6 +188,28 @@ one. Reproduce: `python scripts/compare_retrieval_modes.py`. Full method, includ
 why a real bug (RRF's raw scores were too small to clear the grounding confidence
 threshold, and a test-isolation gap that let the sparse index leak state between
 tests) got caught and fixed while building this: [ADR 0006](docs/decisions/0006-phase6-hybrid-search.md).
+
+### 8b. Phase 7 — Reranking (measured, not assumed)
+
+`RETRIEVAL_MODE=hybrid` held fixed, only `RERANKER_ENABLED` varies
+(`cross-encoder/ms-marco-MiniLM-L-6-v2`, candidate pool 30, final top_k 5):
+
+| Config | Recall@5 | MRR | nDCG@5 | Retrieval p50 | Rerank p50 | Total p50 |
+|---|---:|---:|---:|---:|---:|---:|
+| hybrid, no rerank | 1.000 | **0.875** | **0.906** | 38.6 ms | 0 ms | 38.6 ms |
+| hybrid + rerank | 1.000 | 0.858 | 0.893 | 42.9 ms | 1605.1 ms | 1648.0 ms |
+
+**Reranking made ranking quality very slightly worse** here (MRR 0.875→0.858) while
+adding ~42x total latency. The project rule is "do not assume reranking improves the
+system; prove it experimentally" — this is that proof, and it came back negative.
+Likely cause: the reranker is trained on MS MARCO web passage ranking, a different
+domain/style than this project's small structured corpus, and hybrid retrieval was
+already ranking these 12 questions about as well as a 5-way top-K permits — leaving
+the reranker nothing to fix and some domain-mismatch noise to introduce instead. Not a
+verdict on cross-encoder reranking in general; a verdict on *this* reranker, on *this*
+dataset, at *this* latency. `RERANKER_ENABLED=false` stays the default. Reproduce:
+`python scripts/compare_reranking.py`. Full writeup:
+[ADR 0007](docs/decisions/0007-phase7-reranking.md).
 
 **Phase 3 — chunking strategy comparison** (`fixed` vs `recursive` vs `semantic`,
 measured with content-based relevance since chunk IDs aren't comparable across
@@ -262,8 +290,9 @@ curl -X POST http://localhost:8000/query -H "Content-Type: application/json" \
   for install instructions; Docker and CI install them automatically)
 - `RETRIEVAL_MODE=dense` is still the default — hybrid is opt-in via config, not
   automatic, so Phase 1–5's baseline stays exactly reproducible without an env change
-- No reranking yet — hybrid fusion (Phase 6) improves ranking over the fused
-  candidate set, but nothing re-scores the top-K with a cross-encoder yet (Phase 7)
+- Reranking (`RERANKER_ENABLED`, opt-in, default off) is implemented and tested, but
+  measured to *not* help on this project's small seed set (§8b) — left off by default
+  because the measurement says so, not because it's unfinished
 - No conversation memory — every `/query` call is stateless (Phase 12)
 - No caching, rate limiting, or auth (Phase 17/18)
 - Ingestion runs in-process via `BackgroundTasks`, not a real job queue (Phase 16)
@@ -298,7 +327,7 @@ docker compose up --build
 pytest tests/ -v
 ```
 
-158 tests, all passing. No external services or API keys are required — the vector
+166 tests, all passing. No external services or API keys are required — the vector
 store, DB, and embedding model all run locally by default (see
 [ADR 0001](docs/decisions/0001-phase1-stack-choices.md)). Generation-path and
 vision-caption tests mock the LLM client. OCR-dependent tests run for real against
@@ -329,8 +358,8 @@ docker/, Dockerfile, docker-compose.yml
 | 4 — Multimodal processing (OCR, structured tables, visual descriptions) | ✅ done |
 | 5 — Multimodal retrieval (route queries to text/table/image specifically) | ✅ done |
 | 6 — Hybrid search (dense + BM25 fusion) | ✅ done |
-| 7 — Reranking | ⏳ next |
-| 8 — Query intelligence | ⏳ |
+| 7 — Reranking (implemented, measured off by default — see §8b) | ✅ done |
+| 8 — Query intelligence | ⏳ next |
 | 9 — Context engineering | ⏳ |
 | 10 — Grounded generation | partially in Phase 1 (abstention + citations), formalized later |
 | 11 — Citation engine (validation) | ⏳ |

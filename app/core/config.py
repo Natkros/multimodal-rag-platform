@@ -69,6 +69,11 @@ class Settings(BaseSettings):
     hybrid_sparse_weight: float = Field(default=0.5)
     hybrid_candidate_pool: int = Field(default=20)  # per-retriever pool size before fusion
 
+    # --- Reranking (Phase 7) ---
+    reranker_enabled: bool = Field(default=False)  # opt-in — see docs/decisions/0007-phase7-reranking.md
+    reranker_model: str = Field(default="cross-encoder/ms-marco-MiniLM-L-6-v2")
+    rerank_candidate_pool: int = Field(default=30)  # retrieve this many, rerank down to top_k
+
     # --- LLM / generation ---
     llm_provider: str = Field(default="anthropic")
     llm_model: str = Field(default="claude-sonnet-5")
