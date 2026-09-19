@@ -324,10 +324,25 @@ already known to be safe — full writeup:
 
 ## 11. Security
 
-Current posture is **local-dev only**: no auth, CORS restricted to `localhost:3000` by
-default, secrets via environment variables only (`.env` git-ignored, `.env.example`
-has no real values), upload size/type validation enforced. API-key/JWT auth, rate
-limiting, and broader input sanitization hardening are Phase 18.
+Current posture: no auth **by default** (`API_KEY` unset — still the case for a
+fresh clone/local dev), CORS restricted to `localhost:3000` by default, secrets via
+environment variables only (`.env` git-ignored, `.env.example` has no real values),
+upload size/type validation enforced.
+
+**Phase 18** adds, all opt-in except the last: **API key auth**
+(`API_KEY=<value>` requires `X-API-Key` on every request except `/health`/`/ready`;
+a single shared key, not JWT — this is a single-tenant service API with no user
+accounts to attach JWT claims to, see [ADR 0018](docs/decisions/0018-phase18-security-hardening.md)
+for why that's the right-sized choice); **rate limiting** (`RATE_LIMIT_ENABLED=true`,
+Redis-backed fixed-window counter, fails open on a Redis outage rather than taking
+the API down over it); and **security response headers**
+(`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` — always on, no
+flag, since they only constrain browser behavior and have no cost for a normal API
+client). A real bug surfaced by this phase's own tests: `.env` ships `API_KEY=`
+(present but empty), which an earlier `is None` check didn't treat as "unset" —
+every request got 401'd with no key configured anywhere until fixed to a falsy
+check, matching the same convention `anthropic_api_key`/`pinecone_api_key` already
+used correctly.
 
 **Phase 14 fix**: upload filenames were used unsanitized to build the on-disk save
 path (`app/api/routes/documents.py`), a genuine path-traversal vulnerability — a
@@ -481,7 +496,7 @@ docker/, Dockerfile, docker-compose.yml
 | 15 — Backend refactor | ✅ done — audited the layering, extracted the one real violation found (`/query`'s orchestration into `app/services/query_service.py`) |
 | 16 — Async job queue | ✅ done — opt-in Redis/RQ queue (`JOB_QUEUE_BACKEND=rq`), `background_tasks` stays the default |
 | 17 — Caching | ✅ done — opt-in Redis retrieval cache (`CACHE_ENABLED=true`), bounded-staleness tradeoff disclosed in ADR 0017 |
-| 18 — Security | ⏳ |
+| 18 — Security | ✅ done — opt-in API key auth + Redis rate limiting, always-on security headers |
 | 19 — Observability | partial (latency stats), full metrics/logging ⏳ |
 | 20 — Performance engineering | ⏳ |
 | 21 — Dockerization | ✅ done |

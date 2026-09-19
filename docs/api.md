@@ -1,7 +1,16 @@
 # API Contracts
 
-Base URL: `http://localhost:8000`. All bodies are JSON unless noted. Auth is added in
-Phase 18; all endpoints below are unauthenticated for local development only.
+Base URL: `http://localhost:8000`. All bodies are JSON unless noted.
+
+**Auth (Phase 18)**: unauthenticated by default (`API_KEY` unset, the default for
+local dev). When `API_KEY` is set, every endpoint below except `GET /health` and
+`GET /ready` requires an `X-API-Key: <key>` header — a missing or wrong key returns
+`401`. See [ADR 0018](decisions/0018-phase18-security-hardening.md).
+
+**Rate limiting (Phase 18)**: off by default (`RATE_LIMIT_ENABLED=false`). When
+enabled, exceeding `RATE_LIMIT_REQUESTS_PER_MINUTE` (per API key, or per IP if no
+key is configured) returns `429` with a `Retry-After: 60` header; `/health`/`/ready`
+are exempt.
 
 ## POST /documents/upload
 

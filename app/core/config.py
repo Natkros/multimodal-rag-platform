@@ -115,9 +115,15 @@ class Settings(BaseSettings):
     context_compression_enabled: bool = Field(default=False)
     context_max_chunk_tokens: int = Field(default=300)  # per-chunk cap when compression is on
 
-    # --- API security (Phase 18 groundwork) ---
+    # --- API security (Phase 18) ---
     api_key: str | None = Field(default=None)  # if set, required via X-API-Key header
     cors_allow_origins: tuple[str, ...] = Field(default=("http://localhost:3000",))
+    # Redis-backed (fixed window) so it's correct across multiple API replicas, not
+    # just one process — reuses the same REDIS_URL as Phase 16/17. Fails open (allows
+    # the request, logs a warning) if Redis is unreachable, rather than taking the
+    # whole API down over a rate-limiter dependency outage — see ADR 0018.
+    rate_limit_enabled: bool = Field(default=False)
+    rate_limit_requests_per_minute: int = Field(default=60)
 
     # --- OCR / multimodal (Phase 4) ---
     ocr_enabled: bool = Field(default=True)

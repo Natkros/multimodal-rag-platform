@@ -3,15 +3,17 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.deps import require_api_key
 from app.api.routes import documents, health, query
 from app.core.config import get_settings
+from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.models.db import init_db
 
-settings = get_settings()
-logging.basicConfig(level=settings.log_level)
+logging.basicConfig(level=get_settings().log_level)
 
 
 @asynccontextmanager
@@ -21,6 +23,13 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    # Read fresh on every call, not once at import time — app.main is imported once
+    # per test process, but tests/conftest.py's test_settings fixture changes env
+    # vars and clears get_settings' cache per test; a module-level `settings`
+    # snapshot from first import would silently keep using stale config (CORS
+    # origins, and now Phase 18's api_key/rate_limit settings) for every later test.
+    settings = get_settings()
+
     app = FastAPI(
         title="Multimodal RAG Platform",
         description="Production-grade multimodal Retrieval-Augmented Generation API.",
@@ -28,6 +37,8 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RateLimitMiddleware, settings=settings)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.cors_allow_origins),
@@ -36,9 +47,13 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # /health and /ready stay key-free (k8s liveness/readiness probes hit these
+    # before any key is provisioned to them); every other route requires
+    # X-API-Key when API_KEY is set (see app/api/deps.py::require_api_key — a
+    # no-op when it isn't, which is this project's default).
     app.include_router(health.router)
-    app.include_router(documents.router)
-    app.include_router(query.router)
+    app.include_router(documents.router, dependencies=[Depends(require_api_key)])
+    app.include_router(query.router, dependencies=[Depends(require_api_key)])
 
     return app
 
