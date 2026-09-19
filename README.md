@@ -25,7 +25,7 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
 ```
 `*` reranking ships in Phase 7 (opt-in, off by default — see §8b).
 
-## 3. Features (current — Phase 0–11)
+## 3. Features (current — Phase 0–12)
 
 - Upload PDF / TXT / Markdown / DOCX / HTML / images; idempotent via content-hash
   dedup (`409` on repeat upload)
@@ -72,13 +72,19 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
   [ADR 0007](docs/decisions/0007-phase7-reranking.md))
 - **Query intelligence** (opt-in, `QUERY_INTELLIGENCE_ENABLED=true`): follow-up
   questions ("what about Q2?") get rewritten into self-contained form using
-  in-memory conversation history; multi-part/comparison questions get decomposed
+  persisted conversation history; multi-part/comparison questions get decomposed
   into sub-questions, each retrieved and tracked separately
   (`query_intelligence.retrieval_trace`); a question naming a specific indexed
   document auto-scopes retrieval to it. Ambiguous/short/follow-up/multi-part
   detection is deterministic (no LLM call); rewriting/decomposition/expansion are
   LLM calls that fail soft to a no-op when unconfigured — see
   [ADR 0008](docs/decisions/0008-phase8-query-intelligence.md)
+- **Conversation persistence** (Phase 12): `conversations`/`messages` tables record
+  every turn of any `/query` request that supplies a `conversation_id`, independent
+  of whether query intelligence is enabled — replaces Phase 8's process-local,
+  restart-losing in-memory store; each stored assistant message carries the
+  `chunk_id`s it cited for provenance (see
+  [ADR 0012](docs/decisions/0012-phase12-conversational-rag.md))
 - **Context engineering** (opt-in beyond Phase 1's dedupe+budget packing): a
   relevance floor drops weak candidates, a per-document diversity cap stops one
   source from crowding out others, deterministic truncation ("compression") caps
@@ -318,9 +324,10 @@ curl -X POST http://localhost:8000/query -H "Content-Type: application/json" \
 - Reranking (`RERANKER_ENABLED`, opt-in, default off) is implemented and tested, but
   measured to *not* help on this project's small seed set (§8b) — left off by default
   because the measurement says so, not because it's unfinished
-- Conversation history (Phase 8) is in-memory and process-local — lost on restart, no
-  cross-process sharing; Phase 12 replaces this with real persistence (this was a
-  deliberate scope decision, not an oversight — see ADR 0008)
+- Conversation history is now persisted to the database (`conversations`/`messages`
+  tables, Phase 12) — replaces Phase 8's process-local in-memory store (ADR 0008,
+  ADR 0012). No endpoint reads a conversation's transcript back out yet; the
+  repository method exists (`get_all_messages`), the route just isn't wired up
 - Query rewriting/decomposition/expansion require `ANTHROPIC_API_KEY` to do anything;
   without one they degrade to a no-op (tested, not a silent failure) — no fabricated
   before/after quality number exists for this phase because producing one honestly
@@ -394,8 +401,8 @@ docker/, Dockerfile, docker-compose.yml
 | 9 — Context engineering (relevance floor, diversity cap, compression) | ✅ done |
 | 10 — Grounded generation (configurable thresholds, uncertainty hedging) | ✅ done |
 | 11 — Citation engine (deterministic validation, on by default) | ✅ done |
-| 12 — Conversational RAG | ⏳ next |
-| 13 — Evaluation framework (100–300 Qs) | seed harness in Phase 1, full dataset ⏳ |
+| 12 — Conversational RAG (real DB-backed conversation persistence) | ✅ done |
+| 13 — Evaluation framework (100–300 Qs) | seed harness in Phase 1, full dataset ⏳ next |
 | 14 — Failure testing | partial (corrupted files across all formats), full adversarial suite ⏳ |
 | 15 — Backend refactor | done by Phase 1's structure |
 | 16 — Async job queue | ⏳ (Phase 1 uses BackgroundTasks) |

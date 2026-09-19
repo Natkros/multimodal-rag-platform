@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import db_dependency, settings_dependency
 from app.core.config import Settings
+from app.repositories.conversation_repository import ConversationRepository
 from app.repositories.document_repository import DocumentRepository
 from app.schemas.query import (
     CitationValidationStats,
@@ -21,7 +22,6 @@ from app.schemas.query import (
 from app.services.embeddings.factory import get_embedder
 from app.services.generation.generator import generate_answer
 from app.services.generation.llm_client import LLMNotConfiguredError, get_llm_client
-from app.services.query_intelligence import conversation_store
 from app.services.query_intelligence.pipeline import process_query
 from app.services.reranking.reranker import get_reranker
 from app.services.retrieval.factory import get_retriever, get_vector_store
@@ -50,15 +50,26 @@ def query(
 ):
     total_start = time.perf_counter()
     repo = DocumentRepository(db)
+    conv_repo = ConversationRepository(db)
+
+    # Conversation persistence (Phase 12) is independent of query intelligence
+    # (Phase 8): a conversation_id always gets its turns recorded, even with
+    # QUERY_INTELLIGENCE_ENABLED=false — rewriting/decomposition are an optional
+    # enhancement layered on top of history that exists either way.
+    history: list[tuple[str, str]] = []
+    if request.conversation_id:
+        conv_repo.get_or_create(request.conversation_id)
+        if settings.query_intelligence_enabled:
+            history = conv_repo.get_recent_turns(
+                request.conversation_id, settings.conversation_history_max_turns
+            )
 
     qi_result = None
     effective_question = request.question
     effective_document_ids = request.document_ids
     if settings.query_intelligence_enabled:
         documents = [(d.document_id, d.filename) for d in repo.list_all()]
-        qi_result = process_query(
-            request.question, request.conversation_id, request.document_ids, documents, settings
-        )
+        qi_result = process_query(request.question, history, request.document_ids, documents, settings)
         effective_question = qi_result.effective_question
         if not effective_document_ids and qi_result.matched_document_id:
             effective_document_ids = [qi_result.matched_document_id]
@@ -71,7 +82,9 @@ def query(
     # the reranker needs something to actually choose among — and trim to top_k only
     # after rescoring. Without it, retrieve exactly top_k as before (unchanged
     # Phase 1-6 behavior).
-    pool_k = max(request.top_k, settings.rerank_candidate_pool) if settings.reranker_enabled else request.top_k
+    pool_k = (
+        max(request.top_k, settings.rerank_candidate_pool) if settings.reranker_enabled else request.top_k
+    )
 
     # Decomposition replaces the single query with several independent ones;
     # expansion adds variants alongside the original. Each is a distinct, tracked
@@ -118,9 +131,13 @@ def query(
 
     result = generate_answer(effective_question, retrieved, llm_client, settings)
 
-    if settings.query_intelligence_enabled:
-        conversation_store.append_turn(
-            request.conversation_id, request.question, result.answer, settings.conversation_history_max_turns
+    if request.conversation_id:
+        conv_repo.add_message(request.conversation_id, "user", request.question)
+        conv_repo.add_message(
+            request.conversation_id,
+            "assistant",
+            result.answer,
+            retrieved_source_chunk_ids=[s.chunk_id for s in result.sources],
         )
 
     total_latency_ms = (time.perf_counter() - total_start) * 1000

@@ -1,7 +1,7 @@
 # Database Schema (PostgreSQL, via SQLAlchemy)
 
-Phase 1 ships: `documents`, `chunks`, `jobs`. Later phases add `conversations`,
-`messages`, `citations`, `eval_runs` without altering these.
+Phase 1 ships: `documents`, `chunks`, `jobs`. Phase 12 adds `conversations` and
+`messages` without altering these. Later phases may add `citations`, `eval_runs`.
 
 ```sql
 CREATE TABLE documents (
@@ -48,6 +48,21 @@ CREATE TABLE jobs (
     error_message TEXT,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     completed_at  TIMESTAMPTZ
+);
+
+CREATE TABLE conversations (
+    conversation_id TEXT PRIMARY KEY,              -- caller-supplied, not generated
+    user_id          TEXT,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE messages (
+    message_id                 UUID PRIMARY KEY,
+    conversation_id             TEXT NOT NULL REFERENCES conversations(conversation_id) ON DELETE CASCADE,
+    role                         TEXT NOT NULL,     -- user | assistant
+    content                      TEXT NOT NULL,
+    retrieved_source_chunk_ids JSONB NOT NULL DEFAULT '[]',  -- assistant messages only
+    created_at                  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ```
 

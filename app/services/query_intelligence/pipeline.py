@@ -4,19 +4,25 @@ expand (if enabled and not decomposed) -> match a mentioned document (if none gi
 explicitly). Kept separate from app/api/routes/query.py so the whole pipeline is
 testable without going through FastAPI/HTTP.
 
+`history` is caller-supplied (not fetched internally) as of Phase 12 — real
+persistence now lives in app/repositories/conversation_repository.py, and this module
+only needs "the last few (question, answer) pairs," not where they came from. See
+docs/decisions/0012-phase12-conversational-rag.md for why this replaced Phase 8's
+in-memory conversation_store.py entirely rather than layering DB storage behind it.
+
 Every LLM-backed step degrades independently: if the LLM isn't configured or a call
 fails, that step's effect is simply skipped (original question stays as-is, no
 sub-questions, no expansion) — never a 500. The route's own required LLM call (for
 generation) still returns 503 when unconfigured, since generation has no fallback;
 query intelligence does.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
 from app.core.config import Settings
 from app.services.generation.llm_client import LLMClient, LLMNotConfiguredError, get_llm_client
-from app.services.query_intelligence import conversation_store
 from app.services.query_intelligence.analysis import QueryAnalysis, classify_query
 from app.services.query_intelligence.decomposition import decompose_query
 from app.services.query_intelligence.document_matcher import find_mentioned_document
@@ -44,13 +50,14 @@ def _try_get_llm_client(settings: Settings) -> LLMClient | None:
 
 def process_query(
     question: str,
-    conversation_id: str | None,
+    history: list[tuple[str, str]],
     explicit_document_ids: list[str] | None,
     documents: list[tuple[str, str]],
     settings: Settings,
 ) -> QueryIntelligenceResult:
-    history = conversation_store.get_history(conversation_id, settings.conversation_history_max_turns)
-    analysis = classify_query(question, has_history=bool(history), short_word_threshold=settings.query_short_word_threshold)
+    analysis = classify_query(
+        question, has_history=bool(history), short_word_threshold=settings.query_short_word_threshold
+    )
 
     effective_question = question
     rewritten = False
@@ -67,7 +74,9 @@ def process_query(
     # self-contained by construction), and overwriting those fields with that would
     # misreport what actually happened for this request.
     resolved_analysis = classify_query(
-        effective_question, has_history=bool(history), short_word_threshold=settings.query_short_word_threshold
+        effective_question,
+        has_history=bool(history),
+        short_word_threshold=settings.query_short_word_threshold,
     )
     combined_analysis = QueryAnalysis(
         word_count=analysis.word_count,

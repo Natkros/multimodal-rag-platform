@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from app.core.config import get_settings
-from app.services.query_intelligence import conversation_store as cs
 from app.services.query_intelligence.pipeline import process_query
 
 
@@ -37,17 +36,9 @@ def _base_settings(**overrides):
     return settings
 
 
-def setup_function():
-    cs.reset_all()
-
-
-def teardown_function():
-    cs.reset_all()
-
-
 def test_process_query_no_history_no_rewrite(monkeypatch):
     settings = _base_settings()
-    result = process_query("What is Acme's cancellation policy?", None, None, [], settings)
+    result = process_query("What is Acme's cancellation policy?", [], None, [], settings)
     assert result.effective_question == "What is Acme's cancellation policy?"
     assert result.rewritten is False
 
@@ -55,12 +46,12 @@ def test_process_query_no_history_no_rewrite(monkeypatch):
 def test_process_query_rewrites_follow_up_using_history(monkeypatch):
     import app.services.query_intelligence.pipeline as pipeline_module
 
-    cs.append_turn("conv-1", "What was Q1 2025 revenue?", "$38 million.", max_turns=5)
+    history = [("What was Q1 2025 revenue?", "$38 million.")]
     fake_client = ScriptedLLMClient(rewrite="What was Acme's Q2 2025 revenue?")
     monkeypatch.setattr(pipeline_module, "get_llm_client", lambda settings: fake_client)
 
     settings = _base_settings()
-    result = process_query("What about Q2?", "conv-1", None, [], settings)
+    result = process_query("What about Q2?", history, None, [], settings)
 
     assert result.rewritten is True
     assert result.effective_question == "What was Acme's Q2 2025 revenue?"
@@ -77,7 +68,7 @@ def test_process_query_decomposes_multi_part_question(monkeypatch):
     settings = _base_settings()
     result = process_query(
         "Compare revenue growth between 2023 and 2024 and explain the primary drivers.",
-        None,
+        [],
         None,
         [],
         settings,
@@ -93,7 +84,7 @@ def test_process_query_expansion_only_when_enabled_and_not_decomposed(monkeypatc
     monkeypatch.setattr(pipeline_module, "get_llm_client", lambda settings: fake_client)
 
     settings = _base_settings(query_expansion_enabled=True, query_decomposition_enabled=False)
-    result = process_query("What is Acme's cancellation policy?", None, None, [], settings)
+    result = process_query("What is Acme's cancellation policy?", [], None, [], settings)
 
     assert result.expansion_variants == ["An alternative phrasing of the question."]
 
@@ -107,9 +98,9 @@ def test_process_query_llm_not_configured_degrades_gracefully(monkeypatch):
 
     monkeypatch.setattr(pipeline_module, "get_llm_client", raise_not_configured)
 
-    cs.append_turn("conv-1", "What was Q1 revenue?", "$38 million.", max_turns=5)
+    history = [("What was Q1 revenue?", "$38 million.")]
     settings = _base_settings()
-    result = process_query("What about Q2?", "conv-1", None, [], settings)
+    result = process_query("What about Q2?", history, None, [], settings)
 
     assert result.rewritten is False
     assert result.effective_question == "What about Q2?"
@@ -123,12 +114,12 @@ def test_process_query_reports_is_follow_up_true_even_after_successful_rewrite(m
     already-rewritten text."""
     import app.services.query_intelligence.pipeline as pipeline_module
 
-    cs.append_turn("conv-1", "What was Q1 2025 revenue?", "$38 million.", max_turns=5)
+    history = [("What was Q1 2025 revenue?", "$38 million.")]
     fake_client = ScriptedLLMClient(rewrite="What was Acme's Q2 2025 revenue?")
     monkeypatch.setattr(pipeline_module, "get_llm_client", lambda settings: fake_client)
 
     settings = _base_settings()
-    result = process_query("What about Q2?", "conv-1", None, [], settings)
+    result = process_query("What about Q2?", history, None, [], settings)
 
     assert result.analysis.is_follow_up is True
     assert result.analysis.is_multi_part is False
@@ -137,9 +128,7 @@ def test_process_query_reports_is_follow_up_true_even_after_successful_rewrite(m
 def test_process_query_matches_mentioned_document_when_not_explicit():
     settings = _base_settings()
     documents = [("doc-1", "acme_vendor_security_policy.docx")]
-    result = process_query(
-        "In the vendor security policy, what is required?", None, None, documents, settings
-    )
+    result = process_query("In the vendor security policy, what is required?", [], None, documents, settings)
     assert result.matched_document_id == "doc-1"
 
 
@@ -147,6 +136,6 @@ def test_process_query_does_not_match_document_when_explicit_ids_given():
     settings = _base_settings()
     documents = [("doc-1", "acme_vendor_security_policy.docx")]
     result = process_query(
-        "In the vendor security policy, what is required?", None, ["doc-2"], documents, settings
+        "In the vendor security policy, what is required?", [], ["doc-2"], documents, settings
     )
     assert result.matched_document_id is None

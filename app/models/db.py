@@ -3,6 +3,7 @@
 Works against both PostgreSQL (production/Docker) and SQLite (local dev, tests) —
 see docs/decisions/0001-phase1-stack-choices.md for why.
 """
+
 from __future__ import annotations
 
 import enum
@@ -66,7 +67,9 @@ class Chunk(Base):
     __tablename__ = "chunks"
 
     chunk_id: Mapped[str] = mapped_column(String(128), primary_key=True)
-    document_id: Mapped[str] = mapped_column(String(36), ForeignKey("documents.document_id", ondelete="CASCADE"))
+    document_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("documents.document_id", ondelete="CASCADE")
+    )
     chunk_index: Mapped[int] = mapped_column(Integer)
     content_type: Mapped[str] = mapped_column(String(16), default="text")
     page: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -97,6 +100,38 @@ class Job(Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    conversation_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    user_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    messages: Mapped[list[Message]] = relationship(
+        back_populates="conversation", cascade="all, delete-orphan"
+    )
+
+
+class Message(Base):
+    """One turn's user question or assistant answer — Phase 12 real persistence,
+    replacing Phase 8's in-memory conversation_store.py (see ADR 0008 / ADR 0012)."""
+
+    __tablename__ = "messages"
+
+    message_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    conversation_id: Mapped[str] = mapped_column(
+        String(128), ForeignKey("conversations.conversation_id", ondelete="CASCADE")
+    )
+    role: Mapped[str] = mapped_column(String(16))  # "user" | "assistant"
+    content: Mapped[str] = mapped_column(Text)
+    # Assistant messages only: chunk_ids of the sources the answer cited, for
+    # provenance/audit — see docs/decisions/0012-phase12-conversational-rag.md.
+    retrieved_source_chunk_ids: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    conversation: Mapped[Conversation] = relationship(back_populates="messages")
 
 
 _engine = None

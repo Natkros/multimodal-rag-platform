@@ -211,6 +211,18 @@ it (`matched_document_id`) unless `document_ids` was passed explicitly. Every
 LLM-backed step degrades to a no-op if the LLM isn't configured — see
 [ADR 0008](decisions/0008-phase8-query-intelligence.md).
 
+**Phase 12 — conversation persistence**: passing `conversation_id` on any `/query`
+request (independent of `QUERY_INTELLIGENCE_ENABLED`) persists that turn's question
+and answer to the database — a `conversations` row is created on first use and a
+`messages` row is appended for the user's question and the assistant's answer, the
+latter carrying the cited `chunk_id`s as `retrieved_source_chunk_ids`. History is only
+*read back* for follow-up rewriting when `QUERY_INTELLIGENCE_ENABLED=true`; with it
+off, turns still accumulate durably but nothing consumes them yet. Replaces Phase 8's
+process-local, restart-losing in-memory store — see
+[ADR 0012](decisions/0012-phase12-conversational-rag.md). No endpoint reads
+conversation history back out yet (`ConversationRepository.get_all_messages()`
+supports one; none is wired up — see ADR 0012's "what wasn't built" section).
+
 If evidence is insufficient, `answer` is a fixed abstention string and `sources` is `[]`
 (see [docs/architecture.md](architecture.md) §9 / Phase 10 grounding rules).
 
