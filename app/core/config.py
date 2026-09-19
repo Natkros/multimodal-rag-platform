@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     # --- Uploads ---
     max_upload_size_bytes: int = Field(default=25 * 1024 * 1024)  # 25 MB
     allowed_file_types: tuple[str, ...] = Field(
-        default=("pdf", "txt", "md", "markdown")
+        default=("pdf", "txt", "md", "markdown", "docx", "html", "image")
     )
 
     # --- Embeddings ---

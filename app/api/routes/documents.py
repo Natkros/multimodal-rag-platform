@@ -10,6 +10,7 @@ from app.models.db import Document, Job
 from app.repositories.document_repository import DocumentRepository
 from app.schemas.documents import DocumentListResponse, DocumentResponse, JobResponse
 from app.services.ingestion.pipeline import run_ingestion
+from app.services.ingestion.staleness import find_and_flag_stale_documents
 from app.services.retrieval.factory import get_vector_store
 from app.utils.hashing import classify_file_type, deterministic_document_id, sha256_bytes
 
@@ -146,6 +147,19 @@ def reindex_document(
         job.job_id,
     )
     return {"document_id": document_id, "status": "PROCESSING", "job_id": job.job_id}
+
+
+@router.post("/documents/check-staleness")
+def check_staleness(
+    db: Session = Depends(db_dependency),
+    settings: Settings = Depends(settings_dependency),
+):
+    """Flags indexed documents whose stored chunking strategy or embedding model no
+    longer matches current config as REINDEX_REQUIRED. Does not reindex anything
+    itself — see app/services/ingestion/staleness.py."""
+    repo = DocumentRepository(db)
+    flagged = find_and_flag_stale_documents(repo, settings)
+    return {"flagged_document_ids": flagged, "count": len(flagged)}
 
 
 @router.get("/jobs/{job_id}", response_model=JobResponse)

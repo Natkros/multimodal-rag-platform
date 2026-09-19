@@ -1,7 +1,11 @@
-"""Ingestion pipeline: extraction -> chunking -> embedding -> indexing.
+"""Ingestion pipeline: extraction -> normalization -> chunking -> embedding -> indexing.
 
 Runs synchronously inside a FastAPI BackgroundTask in Phase 1 (see
 docs/decisions/0001-phase1-stack-choices.md for why, and the Phase 16 upgrade path).
+
+Images (`is_visual_only` extraction results) skip chunking/embedding entirely — Phase 2
+catalogs them (format, dimensions, metadata) but has no searchable text to index until
+Phase 4/5 add OCR and visual description.
 """
 from __future__ import annotations
 
@@ -13,14 +17,22 @@ from app.models.db import get_session_factory
 from app.repositories.document_repository import DocumentRepository
 from app.services.chunking.chunker import chunk_document
 from app.services.embeddings.factory import get_embedder
-from app.services.extraction.loaders import CorruptedFileError, extract
+from app.services.extraction.loaders import CorruptedFileError, ExtractedPage, extract
 from app.services.retrieval.factory import get_vector_store
 from app.services.retrieval.vector_store import VectorRecord
+from app.utils.text_normalize import normalize_text
 
 logger = logging.getLogger(__name__)
 
 
-def run_ingestion(document_id: str, file_type: str, raw_bytes: bytes, filename: str, settings: Settings, job_id: str | None = None) -> None:
+def run_ingestion(
+    document_id: str,
+    file_type: str,
+    raw_bytes: bytes,
+    filename: str,
+    settings: Settings,
+    job_id: str | None = None,
+) -> None:
     session_factory = get_session_factory()
     db = session_factory()
     repo = DocumentRepository(db)
@@ -31,6 +43,21 @@ def run_ingestion(document_id: str, file_type: str, raw_bytes: bytes, filename: 
 
         extraction = extract(file_type, raw_bytes)
         repo.set_page_count(document_id, extraction.page_count)
+        if extraction.metadata:
+            repo.update_metadata(document_id, extraction.metadata)
+
+        if extraction.is_visual_only:
+            # Cataloged, not yet searchable — see module docstring.
+            repo.replace_chunks(document_id, [])
+            repo.update_status(document_id, "INDEXED")
+            if job_id:
+                repo.update_job(job_id, status="completed", progress=100, stage="done")
+            return
+
+        extraction.pages = [
+            ExtractedPage(page_number=p.page_number, text=normalize_text(p.text), section=p.section)
+            for p in extraction.pages
+        ]
 
         if job_id:
             repo.update_job(job_id, progress=40, stage="chunking")
@@ -88,6 +115,13 @@ def run_ingestion(document_id: str, file_type: str, raw_bytes: bytes, filename: 
         vector_store.upsert(vector_records)
 
         repo.replace_chunks(document_id, db_chunks)
+        repo.update_metadata(
+            document_id,
+            {
+                "indexed_with_chunking_strategy": settings.chunking_strategy,
+                "indexed_with_embedding_model": embedder.model_name,
+            },
+        )
         repo.update_status(document_id, "INDEXED")
         if job_id:
             repo.update_job(job_id, status="completed", progress=100, stage="done")

@@ -14,6 +14,7 @@ class DocumentResponse(BaseModel):
     page_count: int | None = None
     chunk_count: int = 0
     error_message: str | None = None
+    metadata_json: dict = {}
     upload_timestamp: datetime
     indexed_timestamp: datetime | None = None
 

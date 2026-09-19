@@ -46,6 +46,26 @@ class DocumentRepository:
         doc.page_count = page_count
         self.db.commit()
 
+    def update_metadata(self, document_id: str, updates: dict) -> None:
+        """Merge `updates` into the document's metadata_json (existing keys kept unless
+        overwritten). Used for extractor-derived metadata (title, image dimensions, ...)
+        and the indexing-config fingerprint staleness detection relies on."""
+        doc = self.get(document_id)
+        if doc is None:
+            return
+        merged = dict(doc.metadata_json or {})
+        merged.update({k: v for k, v in updates.items() if v is not None})
+        doc.metadata_json = merged
+        self.db.commit()
+
+    def list_indexed(self) -> list[Document]:
+        return list(
+            self.db.execute(select(Document).where(Document.processing_status == "INDEXED")).scalars()
+        )
+
+    def mark_reindex_required(self, document_id: str) -> None:
+        self.update_status(document_id, "REINDEX_REQUIRED")
+
     def replace_chunks(self, document_id: str, chunks: list[Chunk]) -> None:
         self.db.query(Chunk).filter(Chunk.document_id == document_id).delete()
         for chunk in chunks:

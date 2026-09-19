@@ -1,11 +1,14 @@
-# API Contracts — Phase 1 MVP
+# API Contracts
 
 Base URL: `http://localhost:8000`. All bodies are JSON unless noted. Auth is added in
-Phase 18; Phase 1 endpoints are unauthenticated for local development only.
+Phase 18; all endpoints below are unauthenticated for local development only.
 
 ## POST /documents/upload
 
-`multipart/form-data`, field `file`.
+`multipart/form-data`, field `file`. Accepts PDF, TXT, Markdown, DOCX, HTML, and image
+(PNG/JPEG) files — see [docs/architecture.md](architecture.md) §7 for what each type
+does at ingestion time. Images are cataloged (format/dimensions) but not chunked or
+embedded until Phase 4/5 add OCR and visual description.
 
 **Response `202 Accepted`**
 ```json
@@ -20,7 +23,7 @@ Phase 18; Phase 1 endpoints are unauthenticated for local development only.
 ```
 
 **Errors**
-- `400` unsupported file type / file too large
+- `400` unsupported file type / file too large / empty file
 - `409` duplicate file (same content hash already indexed) — returns the existing document
 
 ## GET /documents
@@ -57,11 +60,27 @@ Deletes the document row, its chunks, and its vectors (dense + sparse).
 ## POST /documents/{document_id}/reindex
 
 Re-runs extraction → chunking → embedding for an existing document (e.g. after a
-chunking-strategy change). Sets status to `REINDEX_REQUIRED` then `PROCESSING`.
+chunking-strategy change). Sets status to `PROCESSING` immediately.
 
 **Response `202`**
 ```json
 { "document_id": "8f14e...c3a1", "status": "PROCESSING" }
+```
+
+**Errors** — `404` if not found; `409` if the original uploaded file is no longer
+available on disk to re-extract from.
+
+## POST /documents/check-staleness
+
+Scans all `INDEXED` documents and flags any whose stored `indexed_with_chunking_strategy`
+/ `indexed_with_embedding_model` no longer match current server config, setting their
+status to `REINDEX_REQUIRED`. Does not reindex anything itself — pair with
+`POST /documents/{id}/reindex` for each flagged id. See
+[docs/decisions/0002-phase2-multiformat-ingestion.md](decisions/0002-phase2-multiformat-ingestion.md).
+
+**Response `200`**
+```json
+{ "flagged_document_ids": ["8f14e...c3a1"], "count": 1 }
 ```
 
 ## POST /query

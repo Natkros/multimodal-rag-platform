@@ -97,3 +97,55 @@ def test_upload_markdown_and_pdf_from_sample_docs(client, sample_docs_dir: Path)
     detail = client.get(f"/documents/{doc_id}").json()
     assert detail["processing_status"] == "INDEXED"
     assert detail["page_count"] and detail["page_count"] > 1
+
+
+def test_upload_docx_gets_indexed(client, sample_docs_dir: Path):
+    path = sample_docs_dir / "acme_vendor_security_policy.docx"
+    with path.open("rb") as f:
+        resp = client.post(
+            "/documents/upload",
+            files={"file": (path.name, f, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        )
+    assert resp.status_code == 202
+    assert resp.json()["file_type"] == "docx"
+
+    doc_id = resp.json()["document_id"]
+    detail = client.get(f"/documents/{doc_id}").json()
+    assert detail["processing_status"] == "INDEXED"
+    assert detail["chunk_count"] >= 1
+
+
+def test_upload_html_gets_indexed(client, sample_docs_dir: Path):
+    path = sample_docs_dir / "roomwise_product_faq.html"
+    with path.open("rb") as f:
+        resp = client.post("/documents/upload", files={"file": (path.name, f, "text/html")})
+    assert resp.status_code == 202
+    assert resp.json()["file_type"] == "html"
+
+    doc_id = resp.json()["document_id"]
+    detail = client.get(f"/documents/{doc_id}").json()
+    assert detail["processing_status"] == "INDEXED"
+    assert detail["chunk_count"] >= 1
+
+
+def test_upload_image_is_cataloged_without_text_chunks(client, sample_docs_dir: Path):
+    path = sample_docs_dir / "acme_quarterly_revenue_chart.png"
+    with path.open("rb") as f:
+        resp = client.post("/documents/upload", files={"file": (path.name, f, "image/png")})
+    assert resp.status_code == 202
+    assert resp.json()["file_type"] == "image"
+
+    doc_id = resp.json()["document_id"]
+    detail = client.get(f"/documents/{doc_id}").json()
+    assert detail["processing_status"] == "INDEXED"
+    assert detail["chunk_count"] == 0
+
+
+def test_check_staleness_flags_nothing_when_config_unchanged(client, sample_docs_dir: Path):
+    path = sample_docs_dir / "acme_vendor_security_policy.docx"
+    with path.open("rb") as f:
+        client.post("/documents/upload", files={"file": (path.name, f, "application/octet-stream")})
+
+    resp = client.post("/documents/check-staleness")
+    assert resp.status_code == 200
+    assert resp.json() == {"flagged_document_ids": [], "count": 0}

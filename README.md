@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Multimodal RAG Platform
 
 A production-grade Retrieval-Augmented Generation platform for heterogeneous enterprise
@@ -8,12 +7,12 @@ claimed improvement. This README reflects **actual, current** repo state; see
 
 ## 1. Project Overview
 
-Enterprise knowledge lives in PDFs, DOCX, scanned documents, spreadsheet-style tables,
-and diagrams — not just clean text. This platform ingests that heterogeneous corpus,
-indexes it for both dense (embedding) and sparse (BM25) retrieval, and answers natural
--language questions with page-level citations, abstaining explicitly when it lacks
-evidence rather than guessing. It is built as a real service (FastAPI + Postgres + a
-pluggable vector store), not a notebook.
+Enterprise knowledge lives in PDFs, Word documents, HTML pages, scanned documents,
+spreadsheet-style tables, and diagrams — not just clean text. This platform ingests
+that heterogeneous corpus, indexes it for both dense (embedding) and sparse (BM25)
+retrieval, and answers natural-language questions with page-level citations, abstaining
+explicitly when it lacks evidence rather than guessing. It is built as a real service
+(FastAPI + Postgres + a pluggable vector store), not a notebook.
 
 ## 2. Architecture
 
@@ -21,16 +20,27 @@ See [docs/architecture.md](docs/architecture.md) for the full system, sequence,
 ingestion/retrieval, and deployment diagrams (Mermaid). Summary:
 
 ```
-Upload → validate/hash → extract → chunk → embed → index (vector store)
+Upload → validate/hash → extract → normalize → chunk → embed → index (vector store)
 Query  → embed → retrieve → (rerank*) → build context → LLM → cite → answer
 ```
 `*` reranking ships in Phase 7.
 
-## 3. Features (current — Phase 1)
+## 3. Features (current — Phase 0–2)
 
-- Upload PDF / TXT / Markdown; idempotent via content-hash dedup (`409` on repeat upload)
+- Upload PDF / TXT / Markdown / DOCX / HTML / images; idempotent via content-hash
+  dedup (`409` on repeat upload)
 - Structure-aware recursive chunking (headings/paragraphs preserved as metadata) + a
-  fixed-size baseline chunker for comparison
+  fixed-size baseline chunker for comparison — DOCX and HTML are normalized into the
+  same heading-marked text the chunker already understands, so no format-specific
+  chunking logic
+- Text normalization step (Unicode NFC, line-ending/whitespace canonicalization)
+  between extraction and chunking
+- Images are cataloged (format, dimensions, content-hash dedup) but not yet chunked
+  or embedded — honest about what's real until Phase 4/5 add OCR and visual
+  description
+- Staleness detection: documents indexed under a chunking strategy or embedding model
+  that no longer matches current config are flagged `REINDEX_REQUIRED` via
+  `POST /documents/check-staleness`
 - Configurable local embedding model (`sentence-transformers`, no API key required)
 - Vector store behind an abstraction — `local` (numpy, zero-setup) or `pinecone`
 - Dense retrieval → grounded generation (Anthropic Claude) → numbered citations
@@ -50,21 +60,28 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
 | Vector store | Pinecone (prod) / in-process cosine store (dev, default) | brief names Pinecone; abstraction means CI/onboarding never needs a live account — see [ADR 0001](docs/decisions/0001-phase1-stack-choices.md) |
 | LLM | Anthropic Claude, model configurable | strong grounded-generation instruction following |
 | DB | PostgreSQL (prod) / SQLite (dev, tests) | same SQLAlchemy models, zero-setup local dev |
+| PDF extraction | `pypdf` | lightweight, pure-Python, no system dependencies |
+| DOCX extraction | `python-docx` | reads paragraph styles (for heading detection) and tables directly from the OOXML structure |
+| HTML extraction | `beautifulsoup4` + `lxml` | robust real-world HTML parsing (malformed markup, scripts/styles to strip) |
+| Image metadata | `Pillow` | format/dimension extraction now; the same library Phase 4's OCR preprocessing will build on |
 | Containerization | Docker / Compose | one-command local stack |
 | Tests | pytest + FastAPI TestClient | fast, no external services required |
 
 ## 5. RAG Pipeline
 
-`ingestion → chunking → embedding → retrieval → (reranking) → generation` — see
-[docs/architecture.md](docs/architecture.md) §3–4 for sequence diagrams and
+`ingestion → normalization → chunking → embedding → retrieval → (reranking) → generation`
+— see [docs/architecture.md](docs/architecture.md) §3–4 for sequence diagrams and
 [docs/api.md](docs/api.md) for the exact request/response contracts.
 
 ## 6. Multimodal Pipeline
 
-Not yet built — Phase 4 target: `text → OCR → tables → images → unified retrieval`.
-Phase 1 supports text-bearing PDF/TXT/MD only; a scanned/image-only PDF will index with
-zero extractable text and the document will be marked `FAILED` with a clear error,
-never silently indexed empty.
+Partially built. Phase 2 adds DOCX/HTML text extraction and catalogs images (format,
+dimensions, metadata) with real content-hash dedup — but images carry no searchable
+text yet. `is_visual_only` extraction results skip chunking/embedding entirely rather
+than indexing an empty string or fabricating placeholder text. OCR, table structure
+extraction, and visual description are Phase 4/5 target:
+`text → OCR → tables → images → unified retrieval`. A scanned/image-only PDF today
+still indexes with zero extractable text and is marked `FAILED` with a clear error.
 
 ## 7. Evaluation
 
@@ -109,19 +126,20 @@ returned by `POST /query` — see [docs/api.md](docs/api.md).
 
 ## 10. Failure Handling
 
-Handled and tested today: corrupted/unparseable PDF, empty file, unsupported file type,
-oversized upload, duplicate upload, LLM not configured (`503`, not a crash), zero
-retrieval matches (explicit abstention, not a hallucinated answer). See
-`tests/api/test_documents.py`, `tests/api/test_query.py`,
-`tests/integration/test_ingestion_pipeline.py`. Broader adversarial testing (Phase 14)
-is not yet built.
+Handled and tested today: corrupted/unparseable PDF/DOCX/image, empty file,
+unsupported file type, oversized upload, duplicate upload, LLM not configured (`503`,
+not a crash), zero retrieval matches (explicit abstention, not a hallucinated answer).
+See `tests/api/test_documents.py`, `tests/api/test_query.py`,
+`tests/integration/test_ingestion_pipeline.py`,
+`tests/unit/test_extraction_loaders.py`. Broader adversarial testing (Phase 14) is not
+yet built.
 
 ## 11. Security
 
-Phase 1 is **local-dev security posture only**: no auth, CORS restricted to
-`localhost:3000` by default, secrets via environment variables only (`.env`
-git-ignored, `.env.example` has no real values), upload size/type validation enforced.
-API-key/JWT auth, rate limiting, and input sanitization hardening are Phase 18.
+Current posture is **local-dev only**: no auth, CORS restricted to `localhost:3000` by
+default, secrets via environment variables only (`.env` git-ignored, `.env.example`
+has no real values), upload size/type validation enforced. API-key/JWT auth, rate
+limiting, and input sanitization hardening are Phase 18.
 
 ## 12. Deployment
 
@@ -142,12 +160,16 @@ curl -X POST http://localhost:8000/query -H "Content-Type: application/json" \
 
 ## 14. Limitations (honest, current)
 
-- Text-only formats (PDF/TXT/MD); no DOCX/HTML/images/OCR/tables yet (Phase 2/4)
+- Images are cataloged but not yet searchable — no OCR or visual description (Phase 4/5)
+- No structured table extraction (DOCX/PDF tables are flattened to text, not
+  rows/columns) — structured extraction is Phase 4
 - Dense-only retrieval; no BM25, fusion, or reranking yet (Phase 6/7)
 - No conversation memory — every `/query` call is stateless (Phase 12)
 - No caching, rate limiting, or auth (Phase 17/18)
 - Ingestion runs in-process via `BackgroundTasks`, not a real job queue (Phase 16)
 - Evaluation dataset is a small seed set, not yet the 100–300 target (Phase 13)
+- Staleness detection (`check-staleness`) flags documents but never reindexes them
+  automatically — that's a deliberate manual/scheduled step, not a gap
 - Nothing has been deployed to a cloud environment
 
 ## 15. Future Work
@@ -176,9 +198,10 @@ docker compose up --build
 pytest tests/ -v
 ```
 
-No external services or API keys are required — the vector store, DB, and embedding
-model all run locally by default (see [ADR 0001](docs/decisions/0001-phase1-stack-choices.md)).
-Generation-path tests mock the LLM client.
+68 tests, all passing. No external services or API keys are required — the vector
+store, DB, and embedding model all run locally by default (see
+[ADR 0001](docs/decisions/0001-phase1-stack-choices.md)). Generation-path tests mock
+the LLM client.
 
 ## Repository Structure
 
@@ -199,8 +222,8 @@ docker/, Dockerfile, docker-compose.yml
 |---|---|
 | 0 — Design | ✅ done |
 | 1 — Basic MVP | ✅ done |
-| 2 — Proper ingestion (DOCX/HTML, idempotency polish) | ⏳ next |
-| 3 — Intelligent chunking experiments | ⏳ |
+| 2 — Proper ingestion (DOCX/HTML/image cataloging, normalization, staleness) | ✅ done |
+| 3 — Intelligent chunking experiments | ⏳ next |
 | 4 — Multimodal processing (OCR/tables/images) | ⏳ |
 | 5 — Multimodal retrieval | ⏳ |
 | 6 — Hybrid search (BM25 fusion) | ⏳ |
@@ -211,8 +234,8 @@ docker/, Dockerfile, docker-compose.yml
 | 11 — Citation engine (validation) | ⏳ |
 | 12 — Conversational RAG | ⏳ |
 | 13 — Evaluation framework (100–300 Qs) | seed harness in Phase 1, full dataset ⏳ |
-| 14 — Failure testing | partial in Phase 1, full adversarial suite ⏳ |
-| 15 — Backend refactor | mostly done by Phase 1's structure |
+| 14 — Failure testing | partial (corrupted files across all formats), full adversarial suite ⏳ |
+| 15 — Backend refactor | done by Phase 1's structure |
 | 16 — Async job queue | ⏳ (Phase 1 uses BackgroundTasks) |
 | 17 — Caching | ⏳ |
 | 18 — Security | ⏳ |
@@ -224,6 +247,3 @@ docker/, Dockerfile, docker-compose.yml
 | 24 — Cloud deployment | ⏳ |
 | 25 — Load testing | ⏳ |
 | 26–30 — Advanced/agentic RAG, dashboard, experiment tracking, final demo | ⏳ |
-=======
-# multimodal-rag-platform
->>>>>>> f94b846846a2abaa7da41232f1892b91fb2aa7cd

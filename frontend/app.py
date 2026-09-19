@@ -19,7 +19,10 @@ tab_upload, tab_query, tab_docs = st.tabs(["Upload", "Ask", "Documents"])
 
 with tab_upload:
     st.subheader("Upload a document")
-    uploaded_file = st.file_uploader("PDF, TXT, or Markdown", type=["pdf", "txt", "md", "markdown"])
+    uploaded_file = st.file_uploader(
+        "PDF, TXT, Markdown, DOCX, HTML, or image (PNG/JPEG)",
+        type=["pdf", "txt", "md", "markdown", "docx", "html", "png", "jpg", "jpeg"],
+    )
     if uploaded_file is not None and st.button("Upload & Index"):
         resp = requests.post(
             f"{API_BASE_URL}/documents/upload",

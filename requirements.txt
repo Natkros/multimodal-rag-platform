@@ -9,6 +9,10 @@ sqlalchemy>=2.0.36
 # yet exist for very new local Python versions). Local dev/tests use SQLite.
 
 pypdf>=5.1.0
+python-docx>=1.1.2
+beautifulsoup4>=4.12.3
+lxml>=5.3.0
+Pillow>=11.0.0
 
 sentence-transformers>=3.3.1
 numpy>=2.2.1

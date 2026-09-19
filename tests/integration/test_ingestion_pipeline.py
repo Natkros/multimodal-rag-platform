@@ -80,3 +80,98 @@ def test_run_ingestion_end_to_end_retrievable(test_settings):
     assert len(results) >= 1
     assert results[0].document_id == document_id
     assert "42.3 million" in results[0].text
+
+
+def test_run_ingestion_indexes_docx(test_settings, sample_docs_dir):
+    from app.models.db import init_db
+
+    init_db()
+    session_factory = get_session_factory()
+    db = session_factory()
+    doc = _make_document(db, "policy.docx", "docx", "hash-docx")
+    document_id = doc.document_id
+    db.close()
+
+    raw = (sample_docs_dir / "acme_vendor_security_policy.docx").read_bytes()
+    run_ingestion(document_id, "docx", raw, "policy.docx", test_settings)
+
+    db = session_factory()
+    repo = DocumentRepository(db)
+    refreshed = repo.get(document_id)
+    assert refreshed.processing_status == "INDEXED"
+    assert refreshed.chunk_count >= 1
+    assert refreshed.metadata_json.get("title") == "Acme Vendor Security Policy"
+    db.close()
+
+
+def test_run_ingestion_indexes_html(test_settings, sample_docs_dir):
+    from app.models.db import init_db
+
+    init_db()
+    session_factory = get_session_factory()
+    db = session_factory()
+    doc = _make_document(db, "faq.html", "html", "hash-html")
+    document_id = doc.document_id
+    db.close()
+
+    raw = (sample_docs_dir / "roomwise_product_faq.html").read_bytes()
+    run_ingestion(document_id, "html", raw, "faq.html", test_settings)
+
+    db = session_factory()
+    repo = DocumentRepository(db)
+    refreshed = repo.get(document_id)
+    assert refreshed.processing_status == "INDEXED"
+    assert refreshed.chunk_count >= 1
+    db.close()
+
+
+def test_run_ingestion_catalogs_image_without_chunking(test_settings, sample_docs_dir):
+    from app.models.db import init_db
+
+    init_db()
+    session_factory = get_session_factory()
+    db = session_factory()
+    doc = _make_document(db, "chart.png", "image", "hash-image")
+    document_id = doc.document_id
+    db.close()
+
+    raw = (sample_docs_dir / "acme_quarterly_revenue_chart.png").read_bytes()
+    run_ingestion(document_id, "image", raw, "chart.png", test_settings)
+
+    db = session_factory()
+    repo = DocumentRepository(db)
+    refreshed = repo.get(document_id)
+    assert refreshed.processing_status == "INDEXED"
+    assert refreshed.chunk_count == 0
+    assert refreshed.metadata_json["image_width"] > 0
+    assert refreshed.metadata_json["text_extraction"] == "pending_multimodal_processing"
+    assert repo.get_chunks(document_id) == []
+    db.close()
+
+
+def test_staleness_flags_documents_indexed_under_old_config(test_settings, sample_docs_dir):
+    from app.models.db import init_db
+    from app.services.ingestion.staleness import find_and_flag_stale_documents
+
+    init_db()
+    session_factory = get_session_factory()
+    db = session_factory()
+    doc = _make_document(db, "notes.txt", "txt", "hash-stale")
+    document_id = doc.document_id
+    db.close()
+
+    run_ingestion(document_id, "txt", b"Some indexable content here. " * 10, "notes.txt", test_settings)
+
+    db = session_factory()
+    repo = DocumentRepository(db)
+    assert repo.get(document_id).processing_status == "INDEXED"
+
+    # No config change yet -> nothing should be flagged.
+    assert find_and_flag_stale_documents(repo, test_settings) == []
+
+    # Simulate a config change (e.g. chunking strategy switched in settings).
+    test_settings.chunking_strategy = "fixed"
+    flagged = find_and_flag_stale_documents(repo, test_settings)
+    assert flagged == [document_id]
+    assert repo.get(document_id).processing_status == "REINDEX_REQUIRED"
+    db.close()
