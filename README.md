@@ -242,6 +242,35 @@ dataset, at *this* latency. `RERANKER_ENABLED=false` stays the default. Reproduc
 `python scripts/compare_reranking.py`. Full writeup:
 [ADR 0007](docs/decisions/0007-phase7-reranking.md).
 
+### 8c. Phase 13 — Expanded evaluation dataset (57 questions, dense-only re-baseline)
+
+`evaluation/datasets/qa_dataset.jsonl` grew from 12 to 57 questions — every new
+question is hand-written against this project's own 8-document corpus (no synthetic
+or LLM-generated questions), covering all documents (including the OCR'd scanned PDF
+and OCR'd revenue chart image, both previously under-tested), two new `query_type`
+values (`multi_part`: two distinct asks in one question; `image`: a retrieval-only
+check against the chart, with no `expected_answer_substrings` because the chart's OCR
+output is too garbled — `'�ome Quarterly Revenue ($M)\n$358m\na\n423m\nsaaim\ns510M\ney'`
+— to support a fact-checked answer; the retrieval target is still real and correct),
+and several genuine cross-document comparison questions (e.g. comparing the vendor
+policy's 24-hour incident window against the handbook's 1-hour window). Dense-only
+retrieval, re-measured on the full 57-question set:
+
+| | n_queries | n_answerable | Recall@5 | Hit Rate@5 | MRR | nDCG@5 | Latency p50 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Dense, 12-question set (Phase 1-6 baseline) | 12 | 10 | 1.000 | 1.000 | 0.750 | 0.812 | 13.6 ms |
+| Dense, 57-question set (Phase 13) | 57 | 50 | 0.900 | 0.920 | 0.751 | 0.789 | 13.8 ms |
+
+Recall@5 drops from a perfect 1.0 to 0.9 — an honest result, not a regression to hide:
+the 12-question set was small enough that dense retrieval's easy cases dominated;
+the 45 new questions include harder multi-document and multi-part cases (e.g. q030,
+q048) whose two ground-truth chunks don't always both land in the top 5 from a single
+un-decomposed query — exactly the gap Phase 8's query decomposition exists to close,
+now with a dataset large enough to actually show it. Full report:
+`evaluation/reports/dense_baseline_20260919_192100.json`. See
+[ADR 0013](docs/decisions/0013-phase13-evaluation-expansion.md) for how the dataset
+was built and why 57 (not yet 100-300) is where it honestly landed.
+
 **Phase 3 — chunking strategy comparison** (`fixed` vs `recursive` vs `semantic`,
 measured with content-based relevance since chunk IDs aren't comparable across
 strategies — see [docs/evaluation.md](docs/evaluation.md)):
@@ -334,7 +363,12 @@ curl -X POST http://localhost:8000/query -H "Content-Type: application/json" \
   needs a real LLM call this dev environment doesn't have configured (ADR 0008)
 - No caching, rate limiting, or auth (Phase 17/18)
 - Ingestion runs in-process via `BackgroundTasks`, not a real job queue (Phase 16)
-- Evaluation dataset is a small seed set, not yet the 100–300 target (Phase 13)
+- Evaluation dataset is 57 hand-authored questions (up from 12 in Phase 1-12), still
+  short of the 100-300 target — this project's 8-document sample corpus genuinely runs
+  out of distinct, non-duplicate facts to ask about well before 100 questions without
+  writing near-duplicates or fabricating content that isn't in the source documents;
+  reaching 100-300 honestly means growing the corpus itself, not just the question
+  count (see [ADR 0013](docs/decisions/0013-phase13-evaluation-expansion.md))
 - Staleness detection (`check-staleness`) flags documents but never reindexes them
   automatically — that's a deliberate manual/scheduled step, not a gap
 - Nothing has been deployed to a cloud environment
@@ -402,7 +436,7 @@ docker/, Dockerfile, docker-compose.yml
 | 10 — Grounded generation (configurable thresholds, uncertainty hedging) | ✅ done |
 | 11 — Citation engine (deterministic validation, on by default) | ✅ done |
 | 12 — Conversational RAG (real DB-backed conversation persistence) | ✅ done |
-| 13 — Evaluation framework (100–300 Qs) | seed harness in Phase 1, full dataset ⏳ next |
+| 13 — Evaluation framework (100–300 Qs) | 57 Qs, expanded from 12 (corpus-limited — see ADR 0013) ⏳ partial |
 | 14 — Failure testing | partial (corrupted files across all formats), full adversarial suite ⏳ |
 | 15 — Backend refactor | done by Phase 1's structure |
 | 16 — Async job queue | ⏳ (Phase 1 uses BackgroundTasks) |

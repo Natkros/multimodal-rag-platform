@@ -22,8 +22,14 @@ Every metric below is tagged **[deterministic]**, **[LLM-as-judge]**, or **[huma
 ```
 
 `query_type` ∈ {factual, semantic, multi_document, comparison, table, image, ambiguous,
-unanswerable}. Grows from a small seed set (Phase 1/13 bootstrap) toward the 100–300
-target as later phases add multimodal and multi-document cases.
+unanswerable, multi_part}. `multi_part` (added Phase 13) is a single question asking
+two distinct, separately-gradable facts (e.g. "what's the price and the listing cap?")
+— distinct from `comparison`, which asks the system to relate two facts to each other,
+and from `multi_document`, which asks about facts that live in two different source
+documents. Grew from 12 questions (Phase 1/8 bootstrap) to 57 (Phase 13) toward the
+100–300 target — see [ADR 0013](decisions/0013-phase13-evaluation-expansion.md) for
+why 57, not 100-300, is where honest expansion of this project's small sample corpus
+currently lands.
 
 ## Retrieval Metrics — all **[deterministic]**, computed in `app/services/evaluation/retrieval_metrics.py`
 
@@ -171,3 +177,39 @@ reranking in general (it's well-established for good reason); it's a verdict on 
 reranker, on *this* small dataset, at *this* latency cost. `RERANKER_ENABLED=false`
 stays the default until Phase 13's larger evaluation set — or a domain-appropriate
 reranker — produces a different measured result.
+
+## Phase 13: Evaluation Dataset Expansion (12 → 57 questions)
+
+The dataset grew from 12 to 57 hand-authored questions, all grounded in this project's
+existing 8-document sample corpus — no synthetic/LLM-generated questions, and no
+fabricated answers (every `expected_answer_substrings` entry was checked against the
+actual extracted chunk text after re-ingesting the corpus, including the two OCR
+chunks, which reveal real OCR noise: `$1,240.00` reads back as `$1.240.00`, and the
+revenue chart is garbled badly enough — `saaim` for `$44.1M` — that its question
+deliberately carries no `expected_answer_substrings`, only a retrieval target). Every
+document in the corpus now has coverage, including the two that only had 1-2
+questions before (vendor security policy, RoomWise FAQ). `expected_chunks` for the 45
+new questions were derived from the actual chunk IDs a real local ingestion run
+produced (`deterministic_document_id` + the default `recursive` chunker), not
+estimated. Full construction method, the exact 45 new question IDs, and why 57 (not
+100-300) is this round's honest stopping point: [ADR 0013](decisions/0013-phase13-evaluation-expansion.md).
+
+Dense-only retrieval, re-measured on the full 57-question set (see
+`evaluation/reports/dense_baseline_20260919_192100.json`):
+
+| Dataset | n_queries | n_answerable | Recall@5 | Hit Rate@5 | MRR | nDCG@5 | Latency p50 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 12 questions (pre-Phase 13) | 12 | 10 | 1.000 | 1.000 | 0.750 | 0.812 | 13.6 ms |
+| 57 questions (Phase 13) | 57 | 50 | 0.900 | 0.920 | 0.751 | 0.789 | 13.8 ms |
+
+Recall@5 dropping from a perfect 1.0 to 0.9 is the expected, honest effect of a larger,
+harder dataset surfacing real retrieval gaps the 12-question set was too small and too
+easy to expose — not a regression in the system. The multi-document and multi-part
+questions (two ground-truth chunks per question, e.g. q030, q048) are the main source
+of the drop: a single un-decomposed dense query doesn't always land both relevant
+chunks in the top 5. This is exactly the failure mode Phase 8's query decomposition
+targets — the larger dataset now makes that improvement measurable in a way the old
+12-question set couldn't, though quantifying it (query-intelligence-enabled vs. not,
+on this dataset) is deferred to a future `compare_query_intelligence.py`, not built
+this phase for the same reason Phase 8 didn't build one: it needs a configured LLM to
+produce a real number, and none is configured in this dev environment.
