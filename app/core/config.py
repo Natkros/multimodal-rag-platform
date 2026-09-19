@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     chunking_strategy: str = Field(default="recursive")  # fixed | recursive | semantic
     chunk_size_tokens: int = Field(default=400)
     chunk_overlap_tokens: int = Field(default=60)
+    semantic_chunk_similarity_threshold: float = Field(default=0.5)
 
     # --- Vector store ---
     vector_store: str = Field(default="local")  # local | pinecone

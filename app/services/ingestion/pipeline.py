@@ -59,6 +59,11 @@ def run_ingestion(
             for p in extraction.pages
         ]
 
+        # Loaded before chunking (not just before embedding) because the `semantic`
+        # strategy needs an embedder to make its boundary decisions; `fixed`/`recursive`
+        # ignore it. Same instance is reused for the chunk-embedding step below.
+        embedder = get_embedder(settings)
+
         if job_id:
             repo.update_job(job_id, progress=40, stage="chunking")
         chunks = chunk_document(
@@ -66,13 +71,14 @@ def run_ingestion(
             strategy=settings.chunking_strategy,
             chunk_size_tokens=settings.chunk_size_tokens,
             overlap_tokens=settings.chunk_overlap_tokens,
+            embedder=embedder,
+            similarity_threshold=settings.semantic_chunk_similarity_threshold,
         )
         if not chunks:
             raise CorruptedFileError("No extractable text content found in document")
 
         if job_id:
             repo.update_job(job_id, progress=60, stage="embedding")
-        embedder = get_embedder(settings)
         texts = [c.text for c in chunks]
         vectors = embedder.embed_documents(texts)
 

@@ -175,3 +175,31 @@ def test_staleness_flags_documents_indexed_under_old_config(test_settings, sampl
     assert flagged == [document_id]
     assert repo.get(document_id).processing_status == "REINDEX_REQUIRED"
     db.close()
+
+
+def test_run_ingestion_with_semantic_strategy(test_settings):
+    from app.models.db import init_db
+
+    init_db()
+    test_settings.chunking_strategy = "semantic"
+    session_factory = get_session_factory()
+    db = session_factory()
+    doc = _make_document(db, "topics.txt", "txt", "hash-semantic")
+    document_id = doc.document_id
+    db.close()
+
+    content = (
+        b"Acme's revenue grew significantly in the second quarter. Revenue reached "
+        b"42.3 million dollars, an increase of 18 percent year over year. "
+        b"In unrelated news, the office cafeteria introduced a new vegetarian menu. "
+        b"Employees have responded positively to the expanded lunch options."
+    )
+    run_ingestion(document_id, "txt", content, "topics.txt", test_settings)
+
+    db = session_factory()
+    repo = DocumentRepository(db)
+    refreshed = repo.get(document_id)
+    assert refreshed.processing_status == "INDEXED"
+    assert refreshed.chunk_count >= 1
+    assert refreshed.metadata_json.get("indexed_with_chunking_strategy") == "semantic"
+    db.close()

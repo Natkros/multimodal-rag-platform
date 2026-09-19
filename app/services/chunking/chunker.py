@@ -1,8 +1,12 @@
 """Chunking strategies.
 
-Phase 1 ships a recursive, structure-aware chunker (default) and a fixed-size baseline
-for comparison (Phase 3 evaluates them against each other). Both preserve page/section
-metadata on every chunk — see docs/db_schema.md.
+Three strategies, compared with measured metrics in Phase 3 (see
+evaluation/reports/ and docs/decisions/0003-phase3-chunking-comparison.md):
+`fixed` (naive token-windowed baseline), `recursive` (structure-aware, splits on
+markdown headings/paragraphs — the default), and `semantic`
+(app/services/chunking/semantic_chunker.py — splits on embedding-similarity drops
+between sentences). All three preserve page/section metadata on every chunk — see
+docs/db_schema.md.
 """
 from __future__ import annotations
 
@@ -36,9 +40,11 @@ def _split_into_words(text: str) -> list[str]:
 
 
 def fixed_size_chunk(
-    pages: list, chunk_size_tokens: int, overlap_tokens: int
+    pages: list, chunk_size_tokens: int, overlap_tokens: int, **_kwargs
 ) -> list[Chunk]:
-    """Naive baseline: chunk purely by token-estimated word count, ignoring structure."""
+    """Naive baseline: chunk purely by token-estimated word count, ignoring structure.
+    Accepts and ignores strategy-specific kwargs (e.g. `embedder`) other strategies use,
+    so `chunk_document` can call every strategy uniformly."""
     chunks: list[Chunk] = []
     index = 0
     words_per_chunk = chunk_size_tokens * 4  # ~4 chars/token, word-approx below
@@ -69,7 +75,7 @@ def fixed_size_chunk(
 
 
 def recursive_chunk(
-    pages: list, chunk_size_tokens: int, overlap_tokens: int
+    pages: list, chunk_size_tokens: int, overlap_tokens: int, **_kwargs
 ) -> list[Chunk]:
     """Structure-aware: split on markdown headings/paragraph boundaries first, then
     recursively pack paragraphs into token-budgeted windows with overlap, carrying the
@@ -180,16 +186,43 @@ def _split_by_structure(text: str) -> list[tuple[str | None, str]]:
     return result
 
 
+def _semantic_chunk(
+    pages: list,
+    chunk_size_tokens: int,
+    overlap_tokens: int,
+    embedder=None,
+    similarity_threshold: float = 0.5,
+    **_kwargs,
+) -> list[Chunk]:
+    from app.services.chunking.semantic_chunker import semantic_chunk
+
+    return semantic_chunk(
+        pages, chunk_size_tokens, overlap_tokens, embedder=embedder, similarity_threshold=similarity_threshold
+    )
+
+
 STRATEGIES = {
     "fixed": fixed_size_chunk,
     "recursive": recursive_chunk,
+    "semantic": _semantic_chunk,
 }
 
 
 def chunk_document(
-    extraction: ExtractionResult, strategy: str, chunk_size_tokens: int, overlap_tokens: int
+    extraction: ExtractionResult,
+    strategy: str,
+    chunk_size_tokens: int,
+    overlap_tokens: int,
+    embedder=None,
+    similarity_threshold: float = 0.5,
 ) -> list[Chunk]:
     fn = STRATEGIES.get(strategy)
     if fn is None:
         raise ValueError(f"Unknown chunking strategy: {strategy!r}")
-    return fn(extraction.pages, chunk_size_tokens, overlap_tokens)
+    return fn(
+        extraction.pages,
+        chunk_size_tokens,
+        overlap_tokens,
+        embedder=embedder,
+        similarity_threshold=similarity_threshold,
+    )

@@ -25,14 +25,15 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
 ```
 `*` reranking ships in Phase 7.
 
-## 3. Features (current — Phase 0–2)
+## 3. Features (current — Phase 0–3)
 
 - Upload PDF / TXT / Markdown / DOCX / HTML / images; idempotent via content-hash
   dedup (`409` on repeat upload)
-- Structure-aware recursive chunking (headings/paragraphs preserved as metadata) + a
-  fixed-size baseline chunker for comparison — DOCX and HTML are normalized into the
-  same heading-marked text the chunker already understands, so no format-specific
-  chunking logic
+- Three chunking strategies, measured against each other (see §8): `fixed` (naive
+  token windows), `recursive` (structure-aware, splits on headings/paragraphs — the
+  default), and `semantic` (embeds sentences, splits on similarity drift) — DOCX and
+  HTML are normalized into the same heading-marked text the chunker already
+  understands, so no format-specific chunking logic
 - Text normalization step (Unicode NFC, line-ending/whitespace canonicalization)
   between extraction and chunking
 - Images are cataloged (format, dimensions, content-hash dedup) but not yet chunked
@@ -118,6 +119,22 @@ exists to prove the harness is wired correctly end-to-end, not as a headline num
 The real signal comes from Phase 6/7's *comparative* deltas once the dataset grows
 (Phase 13) and gets harder multi-document/table/image questions.
 
+**Phase 3 — chunking strategy comparison** (`fixed` vs `recursive` vs `semantic`,
+measured with content-based relevance since chunk IDs aren't comparable across
+strategies — see [docs/evaluation.md](docs/evaluation.md)):
+
+| Strategy | HitRate@5 | Precision@5 | nDCG@5 | MRR | Latency p50 | Ingest+eval wall time |
+|---|---:|---:|---:|---:|---:|---:|
+| fixed | 1.000 | 0.220 | 0.882 | 0.833 | 12.7 ms | 26.9 s |
+| recursive (default) | 1.000 | 0.220 | 0.928 | 0.900 | 13.1 ms | 39.9 s |
+| semantic | 1.000 | 0.440 | 0.868 | 0.808 | 20.1 ms | 131.8 s |
+
+`recursive` wins on ranking quality (nDCG/MRR) on this corpus; `semantic` roughly
+doubles precision (tighter, more topically-coherent chunks) but costs 3–5x the
+ingestion time and ~50% more query latency, since it embeds every sentence and
+searches more, smaller vectors. `fixed` trails on every ranking metric. Reproduce:
+`python scripts/compare_chunking_strategies.py`.
+
 ## 9. Performance
 
 No load-test numbers exist yet (Phase 20/25). Per-request latency breakdown
@@ -198,7 +215,7 @@ docker compose up --build
 pytest tests/ -v
 ```
 
-68 tests, all passing. No external services or API keys are required — the vector
+88 tests, all passing. No external services or API keys are required — the vector
 store, DB, and embedding model all run locally by default (see
 [ADR 0001](docs/decisions/0001-phase1-stack-choices.md)). Generation-path tests mock
 the LLM client.
@@ -211,7 +228,7 @@ frontend/       Streamlit UI (Phase 1)
 tests/          unit / integration / api / evaluation
 evaluation/     datasets, benchmarks, reports
 docs/           architecture, api, evaluation, deployment, ADRs
-scripts/        run_eval.py and other CLIs
+scripts/        run_eval.py, compare_chunking_strategies.py, other CLIs
 docker/, Dockerfile, docker-compose.yml
 .github/workflows/  CI (lint, test, docker build)
 ```
@@ -223,8 +240,8 @@ docker/, Dockerfile, docker-compose.yml
 | 0 — Design | ✅ done |
 | 1 — Basic MVP | ✅ done |
 | 2 — Proper ingestion (DOCX/HTML/image cataloging, normalization, staleness) | ✅ done |
-| 3 — Intelligent chunking experiments | ⏳ next |
-| 4 — Multimodal processing (OCR/tables/images) | ⏳ |
+| 3 — Intelligent chunking (fixed/recursive/semantic, measured comparison) | ✅ done |
+| 4 — Multimodal processing (OCR/tables/images) | ⏳ next |
 | 5 — Multimodal retrieval | ⏳ |
 | 6 — Hybrid search (BM25 fusion) | ⏳ |
 | 7 — Reranking | ⏳ |
