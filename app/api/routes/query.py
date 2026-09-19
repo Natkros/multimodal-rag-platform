@@ -11,8 +11,7 @@ from app.schemas.query import QueryRequest, QueryResponse, RetrievalStats, Sourc
 from app.services.embeddings.factory import get_embedder
 from app.services.generation.generator import generate_answer
 from app.services.generation.llm_client import LLMNotConfiguredError, get_llm_client
-from app.services.retrieval.factory import get_vector_store
-from app.services.retrieval.retriever import DenseRetriever
+from app.services.retrieval.factory import get_retriever, get_vector_store
 
 router = APIRouter(tags=["query"])
 
@@ -27,7 +26,7 @@ def query(
 
     embedder = get_embedder(settings)
     vector_store = get_vector_store(settings, embedder.dimension)
-    retriever = DenseRetriever(embedder=embedder, vector_store=vector_store)
+    retriever = get_retriever(settings, embedder, vector_store)
 
     retrieval_start = time.perf_counter()
     retrieval_result = retriever.retrieve_with_classification(

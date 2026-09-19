@@ -25,7 +25,7 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
 ```
 `*` reranking ships in Phase 7.
 
-## 3. Features (current — Phase 0–5)
+## 3. Features (current — Phase 0–6)
 
 - Upload PDF / TXT / Markdown / DOCX / HTML / images; idempotent via content-hash
   dedup (`409` on repeat upload)
@@ -58,9 +58,16 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
 - Staleness detection: documents indexed under a chunking strategy or embedding model
   that no longer matches current config are flagged `REINDEX_REQUIRED` via
   `POST /documents/check-staleness`
+- **Hybrid search** (dense + BM25): a local BM25 sparse index (`rank_bm25`) is kept in
+  sync alongside the vector store at ingestion time; `RETRIEVAL_MODE=hybrid` fuses both
+  via Reciprocal Rank Fusion (default) or a configurable weighted combination —
+  measured to raise MRR 0.750→0.875 and nDCG@5 0.812→0.906 over dense-only on this
+  corpus, at ~2.8x retrieval latency (see §8 and
+  [ADR 0006](docs/decisions/0006-phase6-hybrid-search.md))
 - Configurable local embedding model (`sentence-transformers`, no API key required)
 - Vector store behind an abstraction — `local` (numpy, zero-setup) or `pinecone`
-- Dense retrieval → grounded generation (Anthropic Claude) → numbered citations
+- Dense (default) or hybrid retrieval → grounded generation (Anthropic Claude) →
+  numbered citations
 - Explicit abstention when retrieval confidence is below threshold
 - Async ingestion (background task) with pollable job status
 - `/health`, `/ready`, structured JSON errors, request-level latency breakdown
@@ -75,6 +82,7 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
 | API | FastAPI | async-native, typed, OpenAPI for free |
 | Embeddings | `sentence-transformers/all-MiniLM-L6-v2` (configurable) | runs locally, no API key needed to develop/test; swappable via `EMBEDDING_PROVIDER` |
 | Vector store | Pinecone (prod) / in-process cosine store (dev, default) | brief names Pinecone; abstraction means CI/onboarding never needs a live account — see [ADR 0001](docs/decisions/0001-phase1-stack-choices.md) |
+| Sparse retrieval | `rank_bm25` (BM25Okapi), local, disk-persisted | the brief names BM25 itself, not a hosted search engine — no cloud/local split needed the way the vector store had one; see [ADR 0006](docs/decisions/0006-phase6-hybrid-search.md) |
 | LLM | Anthropic Claude, model configurable | strong grounded-generation instruction following |
 | DB | PostgreSQL (prod) / SQLite (dev, tests) | same SQLAlchemy models, zero-setup local dev |
 | PDF extraction | `pypdf` | lightweight, pure-Python, no system dependencies |
@@ -138,21 +146,42 @@ from Recall/MRR rather than silently averaged in), `all-MiniLM-L6-v2` embeddings
 |---|---:|---:|---:|---:|
 | Dense, Phase 1 corpus (4 docs) | 1.00 | 0.875 | 0.906 | 12.7 ms |
 | Dense, Phase 4 corpus (8 docs, incl. OCR'd scan + OCR'd image) | 1.00 | 0.750 | 0.812 | 15.0 ms |
-| Hybrid (Phase 6) | not yet implemented | | | |
+| **Hybrid (dense + BM25), Phase 4 corpus** | 1.00 | **0.875** | **0.906** | 37.9 ms |
 | Hybrid + Reranker (Phase 7) | not yet implemented | | | |
 
 Reproduce: `python scripts/run_eval.py` (full report incl. per-question rows written to
 `evaluation/reports/`). Recall@5 of 1.0 on a 10-question seed set is expected and not
 impressive by itself — the dataset is small and hand-authored against one corpus; it
 exists to prove the harness is wired correctly end-to-end, not as a headline number.
-The MRR/nDCG dip between the two rows is a real, honest finding, not noise: adding
-Phase 4's OCR'd scanned PDF and OCR'd chart as genuine retrieval candidates gives the
-retriever more chunks that can plausibly rank above the "correct" one for a few
-questions — more real content in the index costs a little precision at the very top
-until reranking (Phase 7) is added. That's the kind of tradeoff this harness exists to
-surface, not to hide. The bigger signal comes from Phase 6/7's *comparative* deltas
-once the dataset grows (Phase 13) and gets harder multi-document/table/image
-questions.
+The MRR/nDCG dip between the first two rows is a real, honest finding, not noise:
+adding Phase 4's OCR'd scanned PDF and OCR'd chart as genuine retrieval candidates
+gives the retriever more chunks that can plausibly rank above the "correct" one for a
+few questions. **Hybrid search recovers that entire dip** (see the dedicated table in
+§8a below) — BM25's exact lexical matching breaks ties dense embeddings alone
+couldn't, at the cost of ~3x retrieval latency. The bigger signal comes from Phase 7's
+*comparative* delta once reranking is added, and once the dataset grows (Phase 13) to
+harder multi-document/table/image questions.
+
+### 8a. Phase 6 — Dense vs. Hybrid (Dense + BM25) Retrieval
+
+Same 12-question seed set, same 8-document corpus, only `RETRIEVAL_MODE` differs
+(`rrf` fusion, default `k=60`):
+
+| Mode | Recall@5 | Recall@10 | MRR | nDCG@5 | Latency p50 |
+|---|---:|---:|---:|---:|---:|
+| dense | 1.000 | 1.000 | 0.750 | 0.812 | 13.6 ms |
+| hybrid | 1.000 | 1.000 | **0.875** | **0.906** | 37.9 ms |
+
+Both modes reach perfect Recall@5 — the corpus is small enough that dense alone
+already surfaces the right chunk somewhere in the top 5 — so the real signal is
+*ranking quality*: hybrid's BM25 component breaks ties dense cosine-similarity alone
+can't (exact terms, numbers, codes), moving MRR from 0.750 to 0.875 and nDCG@5 from
+0.812 to 0.906. That's a real, measured cost, not free: retrieval latency roughly
+tripled (13.6ms → 37.9ms p50) from running two searches plus a fusion step instead of
+one. Reproduce: `python scripts/compare_retrieval_modes.py`. Full method, including
+why a real bug (RRF's raw scores were too small to clear the grounding confidence
+threshold, and a test-isolation gap that let the sparse index leak state between
+tests) got caught and fixed while building this: [ADR 0006](docs/decisions/0006-phase6-hybrid-search.md).
 
 **Phase 3 — chunking strategy comparison** (`fixed` vs `recursive` vs `semantic`,
 measured with content-based relevance since chunk IDs aren't comparable across
@@ -231,7 +260,10 @@ curl -X POST http://localhost:8000/query -H "Content-Type: application/json" \
   clone without them still works, just degrades gracefully to cataloging scanned
   PDFs/images instead of indexing them (see [ADR 0004](docs/decisions/0004-phase4-multimodal-processing.md)
   for install instructions; Docker and CI install them automatically)
-- Dense-only retrieval; no BM25, fusion, or reranking yet (Phase 6/7)
+- `RETRIEVAL_MODE=dense` is still the default — hybrid is opt-in via config, not
+  automatic, so Phase 1–5's baseline stays exactly reproducible without an env change
+- No reranking yet — hybrid fusion (Phase 6) improves ranking over the fused
+  candidate set, but nothing re-scores the top-K with a cross-encoder yet (Phase 7)
 - No conversation memory — every `/query` call is stateless (Phase 12)
 - No caching, rate limiting, or auth (Phase 17/18)
 - Ingestion runs in-process via `BackgroundTasks`, not a real job queue (Phase 16)
@@ -266,7 +298,7 @@ docker compose up --build
 pytest tests/ -v
 ```
 
-132 tests, all passing. No external services or API keys are required — the vector
+158 tests, all passing. No external services or API keys are required — the vector
 store, DB, and embedding model all run locally by default (see
 [ADR 0001](docs/decisions/0001-phase1-stack-choices.md)). Generation-path and
 vision-caption tests mock the LLM client. OCR-dependent tests run for real against
@@ -296,8 +328,8 @@ docker/, Dockerfile, docker-compose.yml
 | 3 — Intelligent chunking (fixed/recursive/semantic, measured comparison) | ✅ done |
 | 4 — Multimodal processing (OCR, structured tables, visual descriptions) | ✅ done |
 | 5 — Multimodal retrieval (route queries to text/table/image specifically) | ✅ done |
-| 6 — Hybrid search (BM25 fusion) | ⏳ next |
-| 7 — Reranking | ⏳ |
+| 6 — Hybrid search (dense + BM25 fusion) | ✅ done |
+| 7 — Reranking | ⏳ next |
 | 8 — Query intelligence | ⏳ |
 | 9 — Context engineering | ⏳ |
 | 10 — Grounded generation | partially in Phase 1 (abstention + citations), formalized later |

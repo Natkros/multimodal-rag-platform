@@ -1,21 +1,24 @@
-"""Dense-only retriever (Phase 1 baseline). Phase 6 adds BM25 + fusion behind the same
-`retrieve()` call signature so the API/generation layers don't change.
+"""Retrievers. `DenseRetriever` is the Phase 1 baseline; `HybridRetriever` (Phase 6)
+adds BM25 fusion behind the same `retrieve()`/`retrieve_with_classification()` shape
+so the API/generation layers, scripts/run_eval.py, and
+scripts/compare_chunking_strategies.py don't need to know which one they're using.
 
 Phase 5 adds content-type routing: `retrieve_with_classification()` classifies the
 query (app/services/retrieval/query_classifier.py) and, when the wording clearly
 points to text/table/image evidence, searches only chunks of that content_type
 instead of blending everything by score — the spec's "text retrieval / table
 retrieval / image retrieval / hybrid retrieval" modes. `retrieve()` stays a thin
-wrapper over it for existing callers (scripts/run_eval.py,
-scripts/compare_chunking_strategies.py, tests) that don't need the classification
-breakdown.
+wrapper over it for callers that don't need the classification breakdown.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.core.config import Settings
 from app.services.embeddings.base import Embedder
+from app.services.retrieval.fusion import fuse
 from app.services.retrieval.query_classifier import classify_query_content_types
+from app.services.retrieval.sparse_index import BM25Index
 from app.services.retrieval.vector_store import ScoredVector, VectorStore
 
 
@@ -34,7 +37,7 @@ class RetrievedChunk:
 @dataclass
 class RetrievalResult:
     chunks: list[RetrievedChunk]
-    matched_content_types: list[str]  # [] means unrestricted ("hybrid") search
+    matched_content_types: list[str]  # [] means unrestricted ("hybrid" content-type) search
 
 
 def _to_retrieved_chunk(r: ScoredVector) -> RetrievedChunk:
@@ -48,6 +51,15 @@ def _to_retrieved_chunk(r: ScoredVector) -> RetrievedChunk:
         score=r.score,
         content_type=r.metadata.get("content_type", "text"),
     )
+
+
+def _apply_document_filter(
+    results: list[ScoredVector], document_ids: list[str] | None
+) -> list[ScoredVector]:
+    if not document_ids:
+        return results
+    allowed = set(document_ids)
+    return [r for r in results if r.metadata.get("document_id") in allowed]
 
 
 class DenseRetriever:
@@ -83,9 +95,59 @@ class DenseRetriever:
             merged.sort(key=lambda r: r.score, reverse=True)
             results = merged[:top_k]
 
-        if document_ids:
-            allowed = set(document_ids)
-            results = [r for r in results if r.metadata.get("document_id") in allowed]
+        results = _apply_document_filter(results, document_ids)
+        return RetrievalResult(
+            chunks=[_to_retrieved_chunk(r) for r in results],
+            matched_content_types=matched_types,
+        )
+
+
+class HybridRetriever:
+    """Dense (embedding) + sparse (BM25) retrieval, fused per Phase 6 (ADR 0006).
+    Content-type routing (Phase 5) applies to *both* retrievers before fusion: a
+    table-directed query runs dense-vs-table and BM25-vs-table, then fuses just
+    those, rather than fusing full-corpus results and hoping the right content type
+    floats to the top."""
+
+    def __init__(self, embedder: Embedder, vector_store: VectorStore, sparse_index: BM25Index, settings: Settings):
+        self.embedder = embedder
+        self.vector_store = vector_store
+        self.sparse_index = sparse_index
+        self.settings = settings
+
+    def retrieve(
+        self, query: str, top_k: int, document_ids: list[str] | None = None
+    ) -> list[RetrievedChunk]:
+        return self.retrieve_with_classification(query, top_k, document_ids).chunks
+
+    def retrieve_with_classification(
+        self, query: str, top_k: int, document_ids: list[str] | None = None
+    ) -> RetrievalResult:
+        query_vector = self.embedder.embed_query(query)
+        matched_types = sorted(classify_query_content_types(query))
+        types_to_search: list[str | None] = matched_types or [None]  # None = unfiltered
+        pool = self.settings.hybrid_candidate_pool
+
+        fused_all: list[ScoredVector] = []
+        for content_type in types_to_search:
+            filter_ = {"content_type": content_type} if content_type else None
+            dense_candidates = self.vector_store.query(query_vector, top_k=pool, filter=filter_)
+            sparse_candidates = self.sparse_index.query(query, top_k=pool, filter=filter_)
+            fused_all.extend(
+                fuse(
+                    dense_candidates,
+                    sparse_candidates,
+                    method=self.settings.hybrid_fusion_method,
+                    rrf_k=self.settings.hybrid_rrf_k,
+                    dense_weight=self.settings.hybrid_dense_weight,
+                    sparse_weight=self.settings.hybrid_sparse_weight,
+                )
+            )
+        # Each content_type partition contributes disjoint chunk ids (a chunk has
+        # exactly one content_type), so concatenating fused per-type results is safe
+        # — no cross-partition id collisions to deduplicate.
+        fused_all.sort(key=lambda r: r.score, reverse=True)
+        results = _apply_document_filter(fused_all[:top_k], document_ids)
 
         return RetrievalResult(
             chunks=[_to_retrieved_chunk(r) for r in results],

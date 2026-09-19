@@ -33,7 +33,8 @@ from app.services.extraction.loaders import (
     render_table_markdown,
 )
 from app.services.generation.vision_describer import describe_image
-from app.services.retrieval.factory import get_vector_store
+from app.services.retrieval.factory import get_sparse_index, get_vector_store
+from app.services.retrieval.sparse_index import SparseRecord
 from app.services.retrieval.vector_store import VectorRecord
 from app.utils.text_normalize import normalize_text
 
@@ -164,8 +165,18 @@ def run_ingestion(
 
         db_chunks = []
         vector_records = []
+        sparse_records = []
         for chunk, vector in zip(chunks, vectors, strict=True):
             chunk_id = f"{document_id}::chunk-{chunk.chunk_index}"
+            chunk_metadata = {
+                "document_id": document_id,
+                "document_name": filename,
+                "chunk_id": chunk_id,
+                "text": chunk.text,
+                "page": chunk.page,
+                "section": chunk.section,
+                "content_type": chunk.content_type,
+            }
             db_chunks.append(
                 ChunkModel(
                     chunk_id=chunk_id,
@@ -181,26 +192,16 @@ def run_ingestion(
                     extra_metadata=chunk.extra_metadata,
                 )
             )
-            vector_records.append(
-                VectorRecord(
-                    vector_id=chunk_id,
-                    values=vector,
-                    metadata={
-                        "document_id": document_id,
-                        "document_name": filename,
-                        "chunk_id": chunk_id,
-                        "text": chunk.text,
-                        "page": chunk.page,
-                        "section": chunk.section,
-                        "content_type": chunk.content_type,
-                    },
-                )
-            )
+            vector_records.append(VectorRecord(vector_id=chunk_id, values=vector, metadata=chunk_metadata))
+            sparse_records.append(SparseRecord(doc_id=chunk_id, text=chunk.text, metadata=chunk_metadata))
 
         if job_id:
             repo.update_job(job_id, progress=85, stage="indexing")
         vector_store = get_vector_store(settings, embedder.dimension)
         vector_store.upsert(vector_records)
+        # Sparse index is always kept in sync alongside the vector store, regardless
+        # of RETRIEVAL_MODE, so switching dense<->hybrid never requires re-ingestion.
+        get_sparse_index(settings).upsert(sparse_records)
 
         repo.replace_chunks(document_id, db_chunks)
         if file_type != "image":

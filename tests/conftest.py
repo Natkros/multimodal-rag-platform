@@ -16,17 +16,19 @@ def test_settings(monkeypatch):
     monkeypatch.setenv("DATA_DIR", str(tmp_dir))
     monkeypatch.setenv("UPLOAD_DIR", str(tmp_dir / "uploads"))
     monkeypatch.setenv("LOCAL_VECTOR_STORE_DIR", str(tmp_dir / "vector_store"))
+    monkeypatch.setenv("LOCAL_SPARSE_INDEX_DIR", str(tmp_dir / "sparse_index"))
     monkeypatch.setenv("VECTOR_STORE", "local")
     monkeypatch.setenv("EMBEDDING_PROVIDER", "local")
     monkeypatch.setenv("ENVIRONMENT", "test")
 
     from app.core.config import get_settings
     from app.services.embeddings.local_embedder import get_local_embedder
-    from app.services.retrieval.factory import _cached_local_store
+    from app.services.retrieval.factory import _cached_local_store, _cached_sparse_index
 
     get_settings.cache_clear()
     get_local_embedder.cache_clear()
     _cached_local_store.cache_clear()
+    _cached_sparse_index.cache_clear()
 
     import app.models.db as db_module
 
@@ -39,6 +41,7 @@ def test_settings(monkeypatch):
     get_settings.cache_clear()
     get_local_embedder.cache_clear()
     _cached_local_store.cache_clear()
+    _cached_sparse_index.cache_clear()
     db_module._engine = None
     db_module._SessionLocal = None
     shutil.rmtree(tmp_dir, ignore_errors=True)

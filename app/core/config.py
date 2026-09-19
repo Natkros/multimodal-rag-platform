@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     data_dir: Path = Field(default=Path("./data"))
     upload_dir: Path = Field(default=Path("./data/uploads"))
     local_vector_store_dir: Path = Field(default=Path("./data/vector_store"))
+    local_sparse_index_dir: Path = Field(default=Path("./data/sparse_index"))
 
     # --- Database ---
     database_url: str = Field(default="sqlite:///./data/dev.db")
@@ -61,6 +62,12 @@ class Settings(BaseSettings):
     # --- Retrieval ---
     default_top_k: int = Field(default=5)
     retrieval_candidate_pool: int = Field(default=20)
+    retrieval_mode: str = Field(default="dense")  # dense | hybrid — see Phase 6 / ADR 0006
+    hybrid_fusion_method: str = Field(default="rrf")  # rrf | weighted
+    hybrid_rrf_k: int = Field(default=60)  # standard RRF damping constant
+    hybrid_dense_weight: float = Field(default=0.5)  # only used when fusion_method=weighted
+    hybrid_sparse_weight: float = Field(default=0.5)
+    hybrid_candidate_pool: int = Field(default=20)  # per-retriever pool size before fusion
 
     # --- LLM / generation ---
     llm_provider: str = Field(default="anthropic")
@@ -89,6 +96,7 @@ class Settings(BaseSettings):
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.upload_dir.mkdir(parents=True, exist_ok=True)
         self.local_vector_store_dir.mkdir(parents=True, exist_ok=True)
+        self.local_sparse_index_dir.mkdir(parents=True, exist_ok=True)
 
 
 @lru_cache

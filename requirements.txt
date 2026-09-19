@@ -24,6 +24,7 @@ reportlab>=4.2.5  # used only to synthesize table/scanned-page PDF fixtures in t
 
 sentence-transformers>=3.3.1
 numpy>=2.2.1
+rank-bm25>=0.2.2
 
 anthropic>=0.42.0
 

@@ -94,3 +94,18 @@ def test_query_routes_generic_question_without_content_type_restriction(client, 
     resp = client.post("/query", json={"question": "When was Acme founded?", "top_k": 5})
     assert resp.status_code == 200
     assert resp.json()["retrieval"]["matched_content_types"] == []
+
+
+def test_query_with_hybrid_retrieval_mode(client, monkeypatch, test_settings):
+    import app.api.routes.query as query_module
+
+    monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
+    test_settings.retrieval_mode = "hybrid"
+
+    _upload(client, "facts.txt", b"Acme Corporation product code XZ-4471 was founded in 2010. " * 3)
+
+    resp = client.post("/query", json={"question": "When was Acme founded?", "top_k": 5})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["sources"]) >= 1
+    assert body["retrieval"]["retrieved_chunks"] >= 1

@@ -113,3 +113,33 @@ as expected for a strategy that ignores document structure entirely. This is a
 10-question seed set on one small corpus — a real finding about mechanism, not a
 production-grade recommendation; Phase 13's larger dataset is what would justify
 switching the default.
+
+## Phase 6: Dense vs. Hybrid (Dense + BM25) Retrieval
+
+Unlike Phase 3's chunking comparison, dense and hybrid retrieval search the *same*
+chunks (identical `CHUNKING_STRATEGY`, identical chunk_ids) — only the ranking
+differs — so this reuses Phase 1's exact chunk_id-based `aggregate_metrics()` directly
+against `expected_chunks`, not the Phase 3 substring-based content metrics. Full
+method: [ADR 0006](decisions/0006-phase6-hybrid-search.md).
+
+`scripts/compare_retrieval_modes.py` runs `dense` and `hybrid` (RRF fusion, default
+config) each against an isolated DB/vector-store/sparse-index, over the full
+sample_docs corpus and the 12-question seed set. Measured result (see
+`evaluation/reports/retrieval_mode_comparison_*.json` for full per-question detail):
+
+| Mode | Recall@5 | Recall@10 | MRR | nDCG@5 | Latency p50 |
+|---|---:|---:|---:|---:|---:|
+| dense | 1.000 | 1.000 | 0.750 | 0.812 | 13.6 ms |
+| hybrid | 1.000 | 1.000 | 0.875 | 0.906 | 37.9 ms |
+
+Both modes reach perfect Recall@5 on this seed set (the corpus is small enough that
+dense alone already surfaces the right chunk somewhere in the top 5), so the real
+signal is in *ranking quality*: hybrid's BM25 component breaks ties dense embeddings
+alone can't — exact terms, numbers, and codes that matter lexically but don't
+necessarily dominate a cosine-similarity ranking — moving MRR from 0.750 to 0.875 and
+nDCG@5 from 0.812 to 0.906. That comes at a real, measured cost: retrieval latency
+roughly tripled (13.6ms → 37.9ms p50), from running two searches and a fusion step per
+query instead of one. On this project's scale that's still fast in absolute terms;
+whether the ranking-quality gain is worth 2-3x retrieval latency at production scale is
+exactly the kind of tradeoff Phase 20 (performance engineering) and Phase 25 (load
+testing) exist to answer with real numbers, not guessed here.

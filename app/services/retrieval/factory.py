@@ -3,6 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 
 from app.core.config import Settings
+from app.services.retrieval.sparse_index import BM25Index
 from app.services.retrieval.vector_store import VectorStore
 
 
@@ -31,3 +32,28 @@ def get_vector_store(settings: Settings, embedding_dimension: int) -> VectorStor
             region=settings.pinecone_region,
         )
     raise ValueError(f"Unknown vector_store: {settings.vector_store!r}")
+
+
+@lru_cache(maxsize=4)
+def _cached_sparse_index(storage_dir: str) -> BM25Index:
+    from pathlib import Path
+
+    return BM25Index(storage_dir=Path(storage_dir))
+
+
+def get_sparse_index(settings: Settings) -> BM25Index:
+    return _cached_sparse_index(str(settings.local_sparse_index_dir))
+
+
+def get_retriever(settings: Settings, embedder, vector_store: VectorStore):
+    """Returns a DenseRetriever or HybridRetriever per RETRIEVAL_MODE. Both expose the
+    same retrieve()/retrieve_with_classification() shape — see
+    app/services/retrieval/retriever.py."""
+    from app.services.retrieval.retriever import DenseRetriever, HybridRetriever
+
+    if settings.retrieval_mode == "dense":
+        return DenseRetriever(embedder=embedder, vector_store=vector_store)
+    if settings.retrieval_mode == "hybrid":
+        sparse_index = get_sparse_index(settings)
+        return HybridRetriever(embedder=embedder, vector_store=vector_store, sparse_index=sparse_index, settings=settings)
+    raise ValueError(f"Unknown retrieval_mode: {settings.retrieval_mode!r}")

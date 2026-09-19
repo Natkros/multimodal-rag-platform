@@ -76,6 +76,20 @@ def test_delete_document(client):
     assert get_resp.status_code == 404
 
 
+def test_delete_document_cleans_up_sparse_index(client, test_settings):
+    from app.services.retrieval.factory import get_sparse_index
+
+    files = {"file": ("to_delete2.txt", b"Distinctive gizmo widget content here.", "text/plain")}
+    upload = client.post("/documents/upload", files=files)
+    document_id = upload.json()["document_id"]
+
+    sparse_index = get_sparse_index(test_settings)
+    assert sparse_index.query("gizmo widget", top_k=5)
+
+    client.delete(f"/documents/{document_id}")
+    assert sparse_index.query("gizmo widget", top_k=5) == []
+
+
 def test_upload_markdown_and_pdf_from_sample_docs(client, sample_docs_dir: Path):
     md_path = sample_docs_dir / "acme_employee_handbook.md"
     with md_path.open("rb") as f:

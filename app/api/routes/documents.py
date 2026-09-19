@@ -17,7 +17,7 @@ from app.schemas.documents import (
 )
 from app.services.ingestion.pipeline import run_ingestion
 from app.services.ingestion.staleness import find_and_flag_stale_documents
-from app.services.retrieval.factory import get_vector_store
+from app.services.retrieval.factory import get_sparse_index, get_vector_store
 from app.utils.hashing import classify_file_type, deterministic_document_id, sha256_bytes
 
 router = APIRouter(tags=["documents"])
@@ -119,6 +119,11 @@ def delete_document(
         vector_store.delete_by_document(document_id)
     except Exception:
         pass  # vector store cleanup best-effort; DB delete is the source of truth
+
+    try:
+        get_sparse_index(settings).delete_by_document(document_id)
+    except Exception:
+        pass  # sparse index cleanup best-effort; DB delete is the source of truth
 
     repo.delete(document_id)
     return None

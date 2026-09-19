@@ -336,3 +336,52 @@ def test_run_ingestion_ocrs_scanned_pdf(test_settings, sample_docs_dir):
     chunks = repo.get_chunks(document_id)
     assert any("ER-20458" in c.text or "expense" in c.text.lower() for c in chunks)
     db.close()
+
+
+def test_run_ingestion_populates_sparse_index(test_settings):
+    from app.models.db import init_db
+    from app.services.retrieval.factory import get_sparse_index
+
+    init_db()
+    session_factory = get_session_factory()
+    db = session_factory()
+    doc = _make_document(db, "revenue2.txt", "txt", "hash-sparse")
+    document_id = doc.document_id
+    db.close()
+
+    content = ("Acme's Q2 2025 revenue was $42.3 million, up 18% year over year. " * 5).encode("utf-8")
+    run_ingestion(document_id, "txt", content, "revenue2.txt", test_settings)
+
+    sparse_index = get_sparse_index(test_settings)
+    results = sparse_index.query("Q2 2025 revenue 42.3 million", top_k=3)
+    assert results
+    assert results[0].metadata["document_id"] == document_id
+
+
+def test_hybrid_retrieval_end_to_end(test_settings):
+    from app.models.db import init_db
+    from app.services.embeddings.factory import get_embedder
+    from app.services.retrieval.factory import get_retriever, get_vector_store
+
+    init_db()
+    test_settings.retrieval_mode = "hybrid"
+    session_factory = get_session_factory()
+    db = session_factory()
+    doc = _make_document(db, "revenue3.txt", "txt", "hash-hybrid")
+    document_id = doc.document_id
+    db.close()
+
+    content = ("Acme's Q2 2025 revenue was $42.3 million, up 18% year over year. " * 5).encode("utf-8")
+    run_ingestion(document_id, "txt", content, "revenue3.txt", test_settings)
+
+    embedder = get_embedder(test_settings)
+    vector_store = get_vector_store(test_settings, embedder.dimension)
+    retriever = get_retriever(test_settings, embedder, vector_store)
+
+    from app.services.retrieval.retriever import HybridRetriever
+
+    assert isinstance(retriever, HybridRetriever)
+
+    results = retriever.retrieve("What was Acme's Q2 2025 revenue?", top_k=3)
+    assert len(results) >= 1
+    assert results[0].document_id == document_id
