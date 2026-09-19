@@ -11,6 +11,12 @@ import requests
 import streamlit as st
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
+if API_BASE_URL and "://" not in API_BASE_URL:
+    # Phase 24: Render's `fromService: property: hostport` env var reference gives
+    # a scheme-less "host:port" (no equivalent to docker-compose's already-schemed
+    # "http://api:8000") — assume plain HTTP for same-project private-network
+    # traffic rather than requiring every deployment target to supply a scheme.
+    API_BASE_URL = f"http://{API_BASE_URL}"
 
 st.set_page_config(page_title="Multimodal RAG Platform", layout="wide")
 st.title("Multimodal RAG Platform")

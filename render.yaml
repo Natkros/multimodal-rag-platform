@@ -1,0 +1,100 @@
+# Phase 24: Render Blueprint — Infrastructure-as-Code for the simplest *correct*
+# cloud deployment of this project: a single API instance, Phase 1's in-process
+# BackgroundTasks for ingestion, and the local numpy-based vector store. See
+# docs/decisions/0024-phase24-cloud-deployment.md for why this scope, not the full
+# docker-compose.yml topology — the worker service (Phase 16) and a scaled-out API
+# are NOT included here because they require shared storage this project doesn't
+# have yet (explained below and in the ADR), not because they were forgotten.
+#
+# Deploy: connect this repo in the Render dashboard ("New +" -> "Blueprint"), point
+# it at this file, fill in the secret env vars marked `sync: false`. See
+# docs/deployment.md "Cloud" section for the full walkthrough.
+#
+# NOT SAFE to change without reading the ADR first:
+#   - Scaling `multimodal-rag-api` to more than one instance: LocalVectorStore
+#     (app/services/retrieval/local_vector_store.py) is a numpy file on this
+#     service's own disk — a second instance would have its own, divergent copy.
+#     Switch VECTOR_STORE to `pinecone` (a real shared external vector store)
+#     before scaling past one instance.
+#   - Setting JOB_QUEUE_BACKEND=rq and adding a worker service: Phase 16's RQ job
+#     payload is a file *path* into `upload_dir`, assuming the worker can read the
+#     same disk the API wrote the upload to. Render doesn't give two services a
+#     shared disk (unlike docker-compose.yml's shared `api_data` volume) — a
+#     separate worker service would enqueue jobs it can never actually read the
+#     uploaded file for. Needs uploads moved to shared object storage (e.g. S3)
+#     before this is safe; not built.
+
+databases:
+  - name: multimodal-rag-postgres
+    databaseName: ragdb
+    user: raguser
+    plan: starter
+    postgresMajorVersion: "16"
+
+services:
+  - type: redis # Render's newer docs call this `keyvalue`; `redis` is kept here as
+    # the still-functional, more widely-documented alias — see ADR 0024.
+    name: multimodal-rag-redis
+    plan: starter
+    ipAllowList: [] # only reachable from other services in this Render project
+
+  - type: web
+    name: multimodal-rag-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: multimodal-rag-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: multimodal-rag-redis
+          property: connectionString
+      - key: VECTOR_STORE
+        value: local # see the scaling note above before changing instance count
+      - key: EMBEDDING_PROVIDER
+        value: local
+      - key: EMBEDDING_MODEL
+        value: sentence-transformers/all-MiniLM-L6-v2
+      - key: LLM_PROVIDER
+        value: anthropic
+      - key: LLM_MODEL
+        value: claude-sonnet-5
+      - key: ANTHROPIC_API_KEY
+        sync: false # set in the Render dashboard — never committed
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: API_KEY
+        sync: false # Phase 18 — set this for any non-local deployment; see ADR 0018
+      - key: LOG_JSON
+        value: "true" # Phase 19 — structured logs for Render's log aggregation
+      - key: CACHE_ENABLED
+        value: "true" # Phase 17 — Redis is provisioned here, so use it
+      - key: RATE_LIMIT_ENABLED
+        value: "true" # Phase 18 — a public endpoint should have this on
+      - key: LOCAL_VECTOR_STORE_DIR
+        value: /app/data/vector_store
+      - key: UPLOAD_DIR
+        value: /app/data/uploads
+    disk:
+      name: multimodal-rag-api-data
+      mountPath: /app/data
+      sizeGB: 10
+
+  - type: web
+    name: multimodal-rag-frontend
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    plan: starter
+    envVars:
+      - key: API_BASE_URL
+        fromService:
+          type: web
+          name: multimodal-rag-api
+          property: hostport

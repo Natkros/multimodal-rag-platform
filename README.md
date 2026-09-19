@@ -381,8 +381,9 @@ injection that gets echoed back verbatim and cited.
 ## 12. Deployment
 
 Local: `docker compose up` (see [docs/deployment.md](docs/deployment.md)). **No cloud
-deployment exists yet** — that file says so explicitly and will only claim otherwise
-once Phase 24 actually ships it.
+deployment is live** — Phase 24 wrote a Render Blueprint (`render.yaml`) but never
+applied it against a real account (no cloud credentials in this dev session); see
+below and [ADR 0024](docs/decisions/0024-phase24-cloud-deployment.md).
 
 **Phase 21**: audited `Dockerfile`/`frontend/Dockerfile`/`docker-compose.yml`
 against everything Phases 16-20 added; found and fixed a real gap (no
@@ -392,6 +393,21 @@ reason). A real
 `docker build`/`docker compose up` could not be run in this project's dev sandbox
 (no working Docker daemon here); CI's `docker-build` job is this project's actual
 continuous build verification — see [ADR 0021](docs/decisions/0021-phase21-dockerization.md).
+
+**Phase 24**: `render.yaml` (a [Render Blueprint](https://render.com/docs/infrastructure-as-code))
+deliberately deploys a *narrower* topology than `docker-compose.yml` — no worker
+service, `VECTOR_STORE` stays `local` — because two real architectural constraints
+would otherwise ship a config that looks complete but breaks the moment it's
+scaled: `LocalVectorStore` is a numpy file on one instance's own disk (Render
+doesn't share disks across service instances, unlike `docker-compose.yml`'s shared
+volume), and Phase 16's RQ job payload is a file path that assumes the worker can
+read what the API wrote to disk, which only holds when they share storage. Both
+are stated plainly rather than silently shipped broken. A small real fix landed
+alongside it: `frontend/app.py` now handles a scheme-less `API_BASE_URL` (Render's
+`fromService: hostport` returns `host:port` with no `http://`, unlike
+`docker-compose.yml`'s already-schemed value). No live deployment exists — this
+Blueprint was never applied against a real Render account. Full reasoning:
+[ADR 0024](docs/decisions/0024-phase24-cloud-deployment.md).
 
 `docker-compose.yml` includes a `worker` service (Phase 16, same image as `api`,
 running `workers/ingestion_worker.py`) — it only does something once
@@ -539,6 +555,6 @@ docker/, Dockerfile, docker-compose.yml
 | 21 — Dockerization | ✅ done — audited, added missing `.dockerignore`; real `docker build` verification deferred to CI (no Docker daemon in this dev sandbox — see ADR 0021) |
 | 22 — Testing | ✅ done — real coverage measured (95%, `pytest-cov`), genuine gaps found and closed, infra-gated gaps disclosed (ADR 0022) |
 | 23 — CI/CD | ✅ done — coverage gate (`--cov-fail-under=90`) + artifact, compose validation; found mypy has been silently failing outright (ADR 0023); deploy job is Phase 24, once real |
-| 24 — Cloud deployment | ⏳ |
+| 24 — Cloud deployment | ⏳ partial — `render.yaml` Blueprint written and reasoned through (ADR 0024), never deployed (no cloud credentials in this session) |
 | 25 — Load testing | ⏳ |
 | 26–30 — Advanced/agentic RAG, dashboard, experiment tracking, final demo | ⏳ |
