@@ -1,0 +1,92 @@
+{
+  "generated_at": "2026-09-19T20:38:48.029155+00:00",
+  "per_document": [
+    {
+      "file": "acme_employee_handbook.md",
+      "file_type": "markdown",
+      "extraction_ms": 0.02889998722821474,
+      "embedder_load_ms": 21783.106399991084,
+      "chunking_ms": 0.5370000144466758,
+      "embedding_ms": 405.15249996678904,
+      "indexing_ms": 5.5404999875463545,
+      "n_chunks": 2
+    },
+    {
+      "file": "acme_expense_notice_scanned.pdf",
+      "file_type": "pdf",
+      "extraction_ms": 1491.6961999842897,
+      "embedder_load_ms": 0.009100011084228754,
+      "chunking_ms": 0.07239996921271086,
+      "embedding_ms": 38.803900009952486,
+      "indexing_ms": 4.288500000257045,
+      "n_chunks": 1
+    },
+    {
+      "file": "acme_quarterly_revenue_chart.png",
+      "file_type": "image",
+      "extraction_ms": 252.47619999572635,
+      "embedder_load_ms": 0.023100001271814108,
+      "chunking_ms": 0.014999997802078724,
+      "embedding_ms": 18.60439998563379,
+      "indexing_ms": 3.263499995227903,
+      "n_chunks": 1
+    },
+    {
+      "file": "acme_vendor_security_policy.docx",
+      "file_type": "docx",
+      "extraction_ms": 230.6315999594517,
+      "embedder_load_ms": 0.01290004001930356,
+      "chunking_ms": 0.17380004283040762,
+      "embedding_ms": 76.11689995974302,
+      "indexing_ms": 3.5604999866336584,
+      "n_chunks": 2
+    },
+    {
+      "file": "attention_is_all_you_need.pdf",
+      "file_type": "pdf",
+      "extraction_ms": 5247.693400015123,
+      "embedder_load_ms": 0.008600007276982069,
+      "chunking_ms": 2.025499998126179,
+      "embedding_ms": 1020.7768999971449,
+      "indexing_ms": 11.010900023393333,
+      "n_chunks": 41
+    },
+    {
+      "file": "pride_and_prejudice.txt",
+      "file_type": "txt",
+      "extraction_ms": 2.454000001307577,
+      "embedder_load_ms": 0.01079996582120657,
+      "chunking_ms": 49.619800003711134,
+      "embedding_ms": 15899.712699989323,
+      "indexing_ms": 191.4033000357449,
+      "n_chunks": 648
+    },
+    {
+      "file": "roomwise_product_faq.html",
+      "file_type": "html",
+      "extraction_ms": 61.97410001186654,
+      "embedder_load_ms": 0.006699992809444666,
+      "chunking_ms": 0.11480000102892518,
+      "embedding_ms": 38.818699948024005,
+      "indexing_ms": 129.92320000194013,
+      "n_chunks": 1
+    },
+    {
+      "file": "sherlock_holmes.txt",
+      "file_type": "txt",
+      "extraction_ms": 1.151000033132732,
+      "embedder_load_ms": 0.010100018698722124,
+      "chunking_ms": 43.76239998964593,
+      "embedding_ms": 14689.475899969693,
+      "indexing_ms": 542.4071999732405,
+      "n_chunks": 523
+    }
+  ],
+  "stage_totals_ms": {
+    "extraction_ms": 7288.11,
+    "embedder_load_ms": 21783.19,
+    "chunking_ms": 96.32,
+    "embedding_ms": 32187.46,
+    "indexing_ms": 891.4
+  }
+}

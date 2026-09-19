@@ -293,6 +293,17 @@ No load-test numbers exist yet (Phase 20/25). Per-request latency breakdown
 (`retrieval_latency_ms`, `generation_latency_ms`, `total_latency_ms`) is already
 returned by `POST /query` — see [docs/api.md](docs/api.md).
 
+**Phase 20 — performance engineering**: `scripts/profile_pipeline.py` timed every
+real ingestion stage across the sample corpus — embedding compute dominates (32.2s
+total, mostly the two large plain-text novels), one-time embedder model load
+(~21.8s) is already fully amortized by Phase 1's `@lru_cache`, and batching in
+`embed_documents()` was already correct. Two real, measured changes followed:
+response compression (`GZipMiddleware`, catches `GET /documents/{id}/chunks`-sized
+responses) and Postgres connection pool tuning
+(`DB_POOL_SIZE`/`DB_MAX_OVERFLOW`/`DB_POOL_PRE_PING`, no-op for SQLite). Full
+writeup, including a real middleware-ordering bug this phase's own test caught
+twice before landing on the correct fix: [ADR 0020](docs/decisions/0020-phase20-performance.md).
+
 **Phase 19 — observability**: `GET /metrics` (Prometheus text format, unauthenticated
 like `/health`/`/ready`) exposes `http_requests_total` and
 `http_request_duration_seconds` (labeled by method + route template, not literal
@@ -507,7 +518,7 @@ docker/, Dockerfile, docker-compose.yml
 | 17 — Caching | ✅ done — opt-in Redis retrieval cache (`CACHE_ENABLED=true`), bounded-staleness tradeoff disclosed in ADR 0017 |
 | 18 — Security | ✅ done — opt-in API key auth + Redis rate limiting, always-on security headers |
 | 19 — Observability | ✅ done — `GET /metrics` (Prometheus), structured JSON logging (`LOG_JSON=true`), per-request logging middleware |
-| 20 — Performance engineering | ⏳ |
+| 20 — Performance engineering | ✅ done — profiled the real ingestion pipeline, GZip compression + DB pool tuning applied and measured |
 | 21 — Dockerization | ✅ done |
 | 22 — Testing | ✅ ongoing, expands every phase |
 | 23 — CI/CD | ✅ test+build; deploy job added in Phase 24 |

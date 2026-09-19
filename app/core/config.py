@@ -29,6 +29,11 @@ class Settings(BaseSettings):
 
     # --- Database ---
     database_url: str = Field(default="sqlite:///./data/dev.db")
+    # Phase 20: connection pool tuning, applied only for non-SQLite engines (a
+    # SQLite file has no connection pool worth tuning — see app/models/db.py).
+    db_pool_size: int = Field(default=5)
+    db_max_overflow: int = Field(default=10)
+    db_pool_pre_ping: bool = Field(default=True)
 
     # --- Redis / cache ---
     redis_url: str | None = Field(default=None)

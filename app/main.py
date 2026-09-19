@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app.api.deps import require_api_key
 from app.api.routes import documents, health, query
@@ -37,6 +38,17 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # Starlette's add_middleware() builds the stack in reverse call order: the
+    # FIRST middleware added ends up INNERMOST (closest to the router), and the
+    # LAST one added ends up OUTERMOST (closest to the client) — see
+    # Starlette.build_middleware_stack(). GZip is added first specifically so it
+    # sits innermost, directly wrapping the route handlers, and sees a real
+    # Content-Length before any of the BaseHTTPMiddleware-based middlewares below
+    # convert the response into a streaming shell with no known length (which, in
+    # an earlier ordering, defeated `minimum_size` entirely and compressed every
+    # response regardless of size — caught by this phase's own gzip test, not by
+    # inspection). See docs/decisions/0020-phase20-performance.md.
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(ObservabilityMiddleware)
     app.add_middleware(RateLimitMiddleware, settings=settings)

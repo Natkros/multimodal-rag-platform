@@ -142,8 +142,22 @@ def get_engine():
     global _engine
     if _engine is None:
         settings = get_settings()
-        connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
-        _engine = create_engine(settings.database_url, connect_args=connect_args)
+        if settings.database_url.startswith("sqlite"):
+            # A SQLite connection is a local file handle, not a network resource —
+            # there's no pool worth tuning, and pool_pre_ping/pool_size are
+            # meaningless for it (see docs/decisions/0020-phase20-performance.md).
+            _engine = create_engine(settings.database_url, connect_args={"check_same_thread": False})
+        else:
+            _engine = create_engine(
+                settings.database_url,
+                pool_size=settings.db_pool_size,
+                max_overflow=settings.db_max_overflow,
+                # Sends a lightweight SELECT 1 before handing out a pooled
+                # connection, so a connection the DB server silently dropped
+                # (idle timeout, restart) gets transparently replaced instead of
+                # surfacing as a confusing "server has gone away" error mid-request.
+                pool_pre_ping=settings.db_pool_pre_ping,
+            )
     return _engine
 
 
