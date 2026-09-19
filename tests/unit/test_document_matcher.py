@@ -38,6 +38,18 @@ def test_weak_single_word_overlap_does_not_match():
     assert result is None
 
 
+def test_question_with_no_significant_words_returns_none():
+    documents = [("doc-1", "acme_vendor_security_policy.docx")]
+    result = find_mentioned_document("the a an", documents)
+    assert result is None
+
+
+def test_document_with_filename_of_only_stopwords_is_skipped():
+    documents = [("doc-1", "the_report.pdf"), ("doc-2", "acme_vendor_security_policy.docx")]
+    result = find_mentioned_document("What does the vendor security policy say?", documents)
+    assert result == "doc-2"
+
+
 def test_picks_best_match_among_multiple_candidates():
     documents = [
         ("doc-1", "acme_vendor_security_policy.docx"),

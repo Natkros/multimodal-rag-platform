@@ -49,3 +49,24 @@ def test_configure_logging_uses_plain_formatter_by_default():
     configure_logging(settings)
     root = logging.getLogger()
     assert not isinstance(root.handlers[0].formatter, JsonFormatter)
+
+
+def test_json_formatter_includes_exc_info():
+    formatter = JsonFormatter()
+    try:
+        raise ValueError("boom")
+    except ValueError:
+        import sys
+
+        record = logging.LogRecord(
+            name="app.test",
+            level=logging.ERROR,
+            pathname=__file__,
+            lineno=1,
+            msg="something failed",
+            args=(),
+            exc_info=sys.exc_info(),
+        )
+    output = formatter.format(record)
+    data = json.loads(output)
+    assert "ValueError: boom" in data["exc_info"]

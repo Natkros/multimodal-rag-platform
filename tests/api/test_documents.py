@@ -119,6 +119,68 @@ def test_delete_document_cleans_up_sparse_index(client, test_settings):
     assert sparse_index.query("gizmo widget", top_k=5) == []
 
 
+def test_delete_nonexistent_document_404(client):
+    resp = client.delete("/documents/nonexistent-id")
+    assert resp.status_code == 404
+
+
+def test_delete_document_succeeds_even_if_vector_store_cleanup_raises(client, monkeypatch):
+    """Vector store / sparse index cleanup on delete is explicitly best-effort (see
+    app/api/routes/documents.py) - the DB delete is the source of truth, so a
+    cleanup failure must not turn into a 500."""
+    import app.api.routes.documents as documents_module
+
+    files = {"file": ("to_delete3.txt", b"Some content to delete.", "text/plain")}
+    upload = client.post("/documents/upload", files=files)
+    document_id = upload.json()["document_id"]
+
+    class RaisingVectorStore:
+        def delete_by_document(self, document_id):
+            raise RuntimeError("vector store unreachable")
+
+    monkeypatch.setattr(documents_module, "get_vector_store", lambda *a, **k: RaisingVectorStore())
+
+    resp = client.delete(f"/documents/{document_id}")
+    assert resp.status_code == 204
+
+    get_resp = client.get(f"/documents/{document_id}")
+    assert get_resp.status_code == 404
+
+
+def test_reindex_nonexistent_document_404(client):
+    resp = client.post("/documents/nonexistent-id/reindex")
+    assert resp.status_code == 404
+
+
+def test_reindex_without_original_file_returns_409(client, test_settings):
+    """The original upload can be missing from upload_dir (e.g. deleted on disk
+    independent of the DB record) - reindex needs the raw bytes and can't proceed."""
+    files = {"file": ("to_reindex.txt", b"Content for reindex test.", "text/plain")}
+    upload = client.post("/documents/upload", files=files)
+    document_id = upload.json()["document_id"]
+
+    for path in test_settings.upload_dir.glob(f"{document_id}_*"):
+        path.unlink()
+
+    resp = client.post(f"/documents/{document_id}/reindex")
+    assert resp.status_code == 409
+
+
+def test_get_job_returns_status(client):
+    files = {"file": ("job_test.txt", b"Content for job status test.", "text/plain")}
+    upload = client.post("/documents/upload", files=files)
+    job_id = upload.json()["job_id"]
+
+    resp = client.get(f"/jobs/{job_id}")
+    assert resp.status_code == 200
+    assert resp.json()["job_id"] == job_id
+
+
+def test_get_nonexistent_job_404(client):
+    resp = client.get("/jobs/nonexistent-job-id")
+    assert resp.status_code == 404
+
+
 def test_upload_markdown_and_pdf_from_sample_docs(client, sample_docs_dir: Path):
     md_path = sample_docs_dir / "acme_employee_handbook.md"
     with md_path.open("rb") as f:

@@ -481,14 +481,22 @@ docker compose up --build
 
 ```bash
 pytest tests/ -v
+# with coverage (Phase 22):
+pytest tests/ --cov=app --cov-report=term-missing
 ```
 
-254 tests, all passing. No external services or API keys are required — the vector
-store, DB, and embedding model all run locally by default (see
+310+ tests (2 skip without a reachable Redis — Phase 16/17's real-queue/real-cache
+integration tests, which run for real in CI), 95% line coverage. No external
+services or API keys are required for the default run — the vector store, DB, and
+embedding model all run locally by default (see
 [ADR 0001](docs/decisions/0001-phase1-stack-choices.md)). Generation-path and
 vision-caption tests mock the LLM client. OCR-dependent tests run for real against
 installed Tesseract/Poppler binaries and skip gracefully
-(`@pytest.mark.skipif`) if they're absent, rather than mocking OCR entirely.
+(`@pytest.mark.skipif`) if they're absent, rather than mocking OCR entirely. The
+uncovered 5% is mostly the Pinecone vector store and the real Anthropic API call
+path — untestable without real third-party credentials this project doesn't have;
+see [ADR 0022](docs/decisions/0022-phase22-testing.md) for the full breakdown of
+what's covered, what's genuinely gapped, and why.
 
 ## Repository Structure
 
@@ -529,7 +537,7 @@ docker/, Dockerfile, docker-compose.yml
 | 19 — Observability | ✅ done — `GET /metrics` (Prometheus), structured JSON logging (`LOG_JSON=true`), per-request logging middleware |
 | 20 — Performance engineering | ✅ done — profiled the real ingestion pipeline, GZip compression + DB pool tuning applied and measured |
 | 21 — Dockerization | ✅ done — audited, added missing `.dockerignore`; real `docker build` verification deferred to CI (no Docker daemon in this dev sandbox — see ADR 0021) |
-| 22 — Testing | ✅ ongoing, expands every phase |
+| 22 — Testing | ✅ done — real coverage measured (95%, `pytest-cov`), genuine gaps found and closed, infra-gated gaps disclosed (ADR 0022) |
 | 23 — CI/CD | ✅ test+build; deploy job added in Phase 24 |
 | 24 — Cloud deployment | ⏳ |
 | 25 — Load testing | ⏳ |

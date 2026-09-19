@@ -77,6 +77,20 @@ def test_cache_hit_does_not_call_inner():
     assert result.chunks[0].text == "Acme was founded in 2010."
 
 
+def test_retrieve_wrapper_returns_just_the_chunks():
+    inner = MagicMock()
+    inner.retrieve_with_classification.return_value = _sample_result()
+    settings = _settings(cache_enabled=True)
+    retriever = CachingRetriever(inner, settings)
+
+    with patch("app.services.caching.cache.cache_get", return_value=None), patch(
+        "app.services.caching.cache.cache_set"
+    ):
+        chunks = retriever.retrieve("When was Acme founded?", top_k=5)
+
+    assert chunks == _sample_result().chunks
+
+
 def test_cache_key_differs_by_query_top_k_and_document_ids():
     settings = _settings(cache_enabled=True)
     retriever = CachingRetriever(MagicMock(), settings)
