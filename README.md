@@ -538,7 +538,7 @@ docker/, Dockerfile, docker-compose.yml
 | 20 — Performance engineering | ✅ done — profiled the real ingestion pipeline, GZip compression + DB pool tuning applied and measured |
 | 21 — Dockerization | ✅ done — audited, added missing `.dockerignore`; real `docker build` verification deferred to CI (no Docker daemon in this dev sandbox — see ADR 0021) |
 | 22 — Testing | ✅ done — real coverage measured (95%, `pytest-cov`), genuine gaps found and closed, infra-gated gaps disclosed (ADR 0022) |
-| 23 — CI/CD | ✅ test+build; deploy job added in Phase 24 |
+| 23 — CI/CD | ✅ done — coverage gate (`--cov-fail-under=90`) + artifact, compose validation; found mypy has been silently failing outright (ADR 0023); deploy job is Phase 24, once real |
 | 24 — Cloud deployment | ⏳ |
 | 25 — Load testing | ⏳ |
 | 26–30 — Advanced/agentic RAG, dashboard, experiment tracking, final demo | ⏳ |

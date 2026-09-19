@@ -40,21 +40,38 @@ jobs:
         run: ruff check app tests scripts
 
       - name: Type check (mypy)
-        run: mypy app --ignore-missing-imports || true # non-blocking during early phases
+        # Non-blocking: numpy>=2.3's bundled .pyi stubs use PEP 695 `type` statement
+        # syntax, which mypy refuses to parse against this project's python_version
+        # = "3.11" target — a stub-file compatibility issue upstream, not an error
+        # in this project's own code (confirmed: mypy fails at the numpy stub-parse
+        # stage before it reaches any of this project's files). Revisit once
+        # mypy/numpy resolve this, or if pinning numpy to a pre-2.3 release turns
+        # out not to conflict with sentence-transformers/torch — not attempted
+        # blind this phase. See docs/decisions/0023-phase23-cicd.md.
+        run: mypy app --ignore-missing-imports || true
 
-      - name: Run tests
+      - name: Run tests with coverage
         env:
           VECTOR_STORE: local
           EMBEDDING_PROVIDER: local
           DATABASE_URL: sqlite:///./data/ci.db
           REDIS_URL: redis://localhost:6379/0
-        run: pytest tests/ -v --tb=short
+        run: pytest tests/ -v --tb=short --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=90
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
 
   docker-build:
     runs-on: ubuntu-latest
     needs: test
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate docker-compose.yml
+        run: docker compose config --quiet
 
       - name: Build API image
         run: docker build -t multimodal-rag-api:ci -f Dockerfile .
