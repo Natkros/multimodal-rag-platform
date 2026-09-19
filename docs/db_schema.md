@@ -25,10 +25,15 @@ CREATE TABLE chunks (
     content_type   TEXT NOT NULL DEFAULT 'text',  -- text | table | image
     page           INTEGER,
     section        TEXT,
-    text           TEXT NOT NULL,
+    text           TEXT NOT NULL,                 -- searchable/embedded form (always plain text,
+                                                    -- even for table/image chunks — see extra_metadata)
     token_count    INTEGER,
     embedding_model TEXT,
     vector_id      TEXT,                          -- id in the vector store (== chunk_id today)
+    extra_metadata JSONB NOT NULL DEFAULT '{}',    -- Phase 4: table headers/rows, image OCR
+                                                    -- text/caption/dimensions. `text` above stays
+                                                    -- the source of truth for embedding; this is
+                                                    -- the structured provenance alongside it.
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_chunks_document_id ON chunks(document_id);

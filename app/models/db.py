@@ -75,6 +75,9 @@ class Chunk(Base):
     token_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     embedding_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     vector_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # Structured provenance beyond the searchable text: a table's headers/rows, an
+    # image's OCR text/caption/dimensions. See docs/decisions/0004-*.md.
+    extra_metadata: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     document: Mapped[Document] = relationship(back_populates="chunks")

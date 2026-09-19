@@ -26,6 +26,24 @@ class DocumentListResponse(BaseModel):
     total: int
 
 
+class ChunkResponse(BaseModel):
+    chunk_id: str
+    chunk_index: int
+    content_type: str
+    page: int | None = None
+    section: str | None = None
+    text: str
+    token_count: int | None = None
+    extra_metadata: dict = {}
+
+    model_config = {"from_attributes": True}
+
+
+class ChunkListResponse(BaseModel):
+    chunks: list[ChunkResponse]
+    total: int
+
+
 class JobResponse(BaseModel):
     job_id: str
     document_id: str | None = None

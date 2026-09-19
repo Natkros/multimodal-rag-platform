@@ -125,13 +125,53 @@ def test_run_ingestion_indexes_html(test_settings, sample_docs_dir):
     db.close()
 
 
-def test_run_ingestion_catalogs_image_without_chunking(test_settings, sample_docs_dir):
+def test_run_ingestion_catalogs_blank_image_without_chunking(test_settings):
+    """A blank image has no OCR text and, with no vision LLM configured, no caption
+    either — it should still be cataloged (Phase 2 behavior), not fail."""
+    from io import BytesIO
+
+    from PIL import Image
+
     from app.models.db import init_db
 
     init_db()
+    test_settings.vision_description_enabled = False
     session_factory = get_session_factory()
     db = session_factory()
-    doc = _make_document(db, "chart.png", "image", "hash-image")
+    doc = _make_document(db, "blank.png", "image", "hash-blank-image")
+    document_id = doc.document_id
+    db.close()
+
+    img = Image.new("RGB", (50, 50), "gray")
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    run_ingestion(document_id, "image", buf.getvalue(), "blank.png", test_settings)
+
+    db = session_factory()
+    repo = DocumentRepository(db)
+    refreshed = repo.get(document_id)
+    assert refreshed.processing_status == "INDEXED"
+    assert refreshed.chunk_count == 0
+    assert refreshed.metadata_json["image_width"] == 50
+    assert repo.get_chunks(document_id) == []
+    db.close()
+
+
+def test_run_ingestion_ocrs_image_with_text(test_settings, sample_docs_dir):
+    """The sample revenue chart has real drawn text (title, axis labels, $ values) —
+    with Tesseract installed, OCR should make it searchable without needing an LLM."""
+    from app.models.db import init_db
+    from app.services.extraction.ocr import is_ocr_available
+
+    init_db()
+    if not is_ocr_available(test_settings):
+        import pytest
+
+        pytest.skip("Tesseract not installed")
+
+    session_factory = get_session_factory()
+    db = session_factory()
+    doc = _make_document(db, "chart.png", "image", "hash-image-ocr")
     document_id = doc.document_id
     db.close()
 
@@ -142,10 +182,73 @@ def test_run_ingestion_catalogs_image_without_chunking(test_settings, sample_doc
     repo = DocumentRepository(db)
     refreshed = repo.get(document_id)
     assert refreshed.processing_status == "INDEXED"
-    assert refreshed.chunk_count == 0
-    assert refreshed.metadata_json["image_width"] > 0
-    assert refreshed.metadata_json["text_extraction"] == "pending_multimodal_processing"
-    assert repo.get_chunks(document_id) == []
+    assert refreshed.chunk_count == 1
+    chunks = repo.get_chunks(document_id)
+    assert chunks[0].content_type == "image"
+    assert chunks[0].extra_metadata["ocr_text"]
+    assert chunks[0].vector_id  # embedded and indexed, unlike Phase 2's catalog-only images
+    db.close()
+
+
+def test_run_ingestion_captions_image_via_vision_llm_when_ocr_finds_nothing(test_settings, monkeypatch):
+    """A photo-like image with no text: OCR finds nothing, so the pipeline should try
+    a vision-LLM caption instead and index that."""
+    from io import BytesIO
+
+    from PIL import Image
+
+    from app.models.db import init_db
+
+    init_db()
+
+    def fake_describe_image(raw_bytes, image_format, settings):
+        return "A stock photo of a mountain landscape at sunset."
+
+    monkeypatch.setattr("app.services.ingestion.pipeline.describe_image", fake_describe_image)
+
+    session_factory = get_session_factory()
+    db = session_factory()
+    doc = _make_document(db, "landscape.png", "image", "hash-image-caption")
+    document_id = doc.document_id
+    db.close()
+
+    img = Image.new("RGB", (80, 60), "orange")
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    run_ingestion(document_id, "image", buf.getvalue(), "landscape.png", test_settings)
+
+    db = session_factory()
+    repo = DocumentRepository(db)
+    refreshed = repo.get(document_id)
+    assert refreshed.processing_status == "INDEXED"
+    assert refreshed.chunk_count == 1
+    chunks = repo.get_chunks(document_id)
+    assert chunks[0].content_type == "image"
+    assert "mountain" in chunks[0].text.lower()
+    assert chunks[0].extra_metadata["caption"] == "A stock photo of a mountain landscape at sunset."
+    db.close()
+
+
+def test_run_ingestion_extracts_docx_table_as_structured_chunk(test_settings, sample_docs_dir):
+    from app.models.db import init_db
+
+    init_db()
+    session_factory = get_session_factory()
+    db = session_factory()
+    doc = _make_document(db, "policy2.docx", "docx", "hash-docx-table")
+    document_id = doc.document_id
+    db.close()
+
+    raw = (sample_docs_dir / "acme_vendor_security_policy.docx").read_bytes()
+    run_ingestion(document_id, "docx", raw, "policy2.docx", test_settings)
+
+    db = session_factory()
+    repo = DocumentRepository(db)
+    table_chunks = [c for c in repo.get_chunks(document_id) if c.content_type == "table"]
+    assert len(table_chunks) >= 1
+    assert table_chunks[0].extra_metadata["headers"]
+    assert table_chunks[0].extra_metadata["rows"]
+    assert table_chunks[0].vector_id  # tables are embedded/indexed like any other chunk
     db.close()
 
 
@@ -202,4 +305,34 @@ def test_run_ingestion_with_semantic_strategy(test_settings):
     assert refreshed.processing_status == "INDEXED"
     assert refreshed.chunk_count >= 1
     assert refreshed.metadata_json.get("indexed_with_chunking_strategy") == "semantic"
+    db.close()
+
+
+def test_run_ingestion_ocrs_scanned_pdf(test_settings, sample_docs_dir):
+    from app.models.db import init_db
+    from app.services.extraction.ocr import is_ocr_available
+
+    init_db()
+    if not is_ocr_available(test_settings):
+        import pytest
+
+        pytest.skip("Tesseract/Poppler not installed")
+
+    session_factory = get_session_factory()
+    db = session_factory()
+    doc = _make_document(db, "expense_notice.pdf", "pdf", "hash-scanned-pdf")
+    document_id = doc.document_id
+    db.close()
+
+    raw = (sample_docs_dir / "acme_expense_notice_scanned.pdf").read_bytes()
+    run_ingestion(document_id, "pdf", raw, "expense_notice.pdf", test_settings)
+
+    db = session_factory()
+    repo = DocumentRepository(db)
+    refreshed = repo.get(document_id)
+    assert refreshed.processing_status == "INDEXED"
+    assert refreshed.chunk_count >= 1
+    assert refreshed.metadata_json.get("ocr_used") is True
+    chunks = repo.get_chunks(document_id)
+    assert any("ER-20458" in c.text or "expense" in c.text.lower() for c in chunks)
     db.close()

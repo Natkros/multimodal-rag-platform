@@ -74,6 +74,17 @@ class Settings(BaseSettings):
     api_key: str | None = Field(default=None)  # if set, required via X-API-Key header
     cors_allow_origins: tuple[str, ...] = Field(default=("http://localhost:3000",))
 
+    # --- OCR / multimodal (Phase 4) ---
+    ocr_enabled: bool = Field(default=True)
+    # Explicit binary paths, not PATH-lookup: Tesseract/Poppler are system installs
+    # whose location varies by OS/installer, and requiring a shell restart after
+    # install to pick up a PATH change is a bad first-run experience. None means
+    # "search PATH" (the normal case on Linux CI/Docker, where apt puts them there).
+    ocr_tesseract_cmd: str | None = Field(default=None)
+    ocr_poppler_path: str | None = Field(default=None)
+    vision_description_enabled: bool = Field(default=True)  # still requires an LLM to be configured
+    min_ocr_text_length: int = Field(default=10)  # below this, treat OCR as "found nothing"
+
     def ensure_dirs(self) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.upload_dir.mkdir(parents=True, exist_ok=True)

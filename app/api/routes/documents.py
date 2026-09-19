@@ -8,7 +8,13 @@ from app.api.deps import db_dependency, settings_dependency
 from app.core.config import Settings
 from app.models.db import Document, Job
 from app.repositories.document_repository import DocumentRepository
-from app.schemas.documents import DocumentListResponse, DocumentResponse, JobResponse
+from app.schemas.documents import (
+    ChunkListResponse,
+    ChunkResponse,
+    DocumentListResponse,
+    DocumentResponse,
+    JobResponse,
+)
 from app.services.ingestion.pipeline import run_ingestion
 from app.services.ingestion.staleness import find_and_flag_stale_documents
 from app.services.retrieval.factory import get_vector_store
@@ -147,6 +153,17 @@ def reindex_document(
         job.job_id,
     )
     return {"document_id": document_id, "status": "PROCESSING", "job_id": job.job_id}
+
+
+@router.get("/documents/{document_id}/chunks", response_model=ChunkListResponse)
+def list_chunks(document_id: str, db: Session = Depends(db_dependency)):
+    """Exposes chunk-level provenance — content_type and extra_metadata make table
+    headers/rows and image OCR text/captions inspectable (Phase 4)."""
+    repo = DocumentRepository(db)
+    if repo.get(document_id) is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    chunks = repo.get_chunks(document_id)
+    return ChunkListResponse(chunks=[ChunkResponse.model_validate(c) for c in chunks], total=len(chunks))
 
 
 @router.post("/documents/check-staleness")

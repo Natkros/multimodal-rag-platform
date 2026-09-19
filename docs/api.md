@@ -7,8 +7,12 @@ Phase 18; all endpoints below are unauthenticated for local development only.
 
 `multipart/form-data`, field `file`. Accepts PDF, TXT, Markdown, DOCX, HTML, and image
 (PNG/JPEG) files — see [docs/architecture.md](architecture.md) §7 for what each type
-does at ingestion time. Images are cataloged (format/dimensions) but not chunked or
-embedded until Phase 4/5 add OCR and visual description.
+does at ingestion time. Scanned PDFs and images are OCR'd (Tesseract) when they have
+no text layer; images with no OCR-extractable text get a vision-LLM caption instead
+(when an LLM is configured) or are cataloged without being searchable if neither
+produces anything (see [ADR 0004](decisions/0004-phase4-multimodal-processing.md)).
+PDF/DOCX tables are extracted as structured chunks (`content_type="table"`), not
+flattened into surrounding text.
 
 **Response `202 Accepted`**
 ```json
@@ -69,6 +73,33 @@ chunking-strategy change). Sets status to `PROCESSING` immediately.
 
 **Errors** — `404` if not found; `409` if the original uploaded file is no longer
 available on disk to re-extract from.
+
+## GET /documents/{document_id}/chunks
+
+**Response `200`**
+```json
+{
+  "chunks": [
+    {
+      "chunk_id": "8f14e...c3a1::chunk-3",
+      "chunk_index": 3,
+      "content_type": "table",
+      "page": 2,
+      "section": null,
+      "text": "| Tier | Criteria | Review Frequency |\n|---|---|---|\n| Tier 1 | ... |",
+      "token_count": 42,
+      "extra_metadata": {
+        "headers": ["Tier", "Criteria", "Review Frequency"],
+        "rows": [["Tier 1", "Access to customer PII...", "Annual, on-site audit"]]
+      }
+    }
+  ],
+  "total": 12
+}
+```
+`content_type` is `text`, `table`, or `image`. `extra_metadata` carries structured
+provenance beyond the searchable `text`: table `headers`/`rows`, or an image's
+`ocr_text`/`caption`/dimensions. **Errors** — `404` if the document doesn't exist.
 
 ## POST /documents/check-staleness
 

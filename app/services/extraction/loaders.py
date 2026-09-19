@@ -1,21 +1,30 @@
-"""Content extraction for Phase 2 file types (PDF, TXT, Markdown, DOCX, HTML, images).
+"""Content extraction for all supported file types (PDF, TXT, Markdown, DOCX, HTML,
+images), including Phase 4 multimodal processing: OCR fallback for scanned PDFs and
+images, and structured table extraction for PDF/DOCX.
 
 Returns an `ExtractionResult` — a unified representation the chunker consumes
-regardless of source format. HTML and DOCX are normalized into the same
+regardless of source format. HTML and DOCX body text is normalized into the same
 heading-marked plain text the Markdown chunker already understands (headings become
 `#`..`######` lines) rather than teaching the chunker format-specific structure.
+Tables are pulled out as separate `ExtractedTable` objects instead — per the project
+brief, "do not treat a table as plain text if structured extraction is possible" — and
+turned into their own chunks by the ingestion pipeline (see
+app/services/ingestion/pipeline.py), not flattened into surrounding body text.
 
-Images carry no extractable text yet (`is_visual_only=True`): OCR and visual
-description are Phase 4/5 scope. Phase 2 still catalogs them — format, dimensions,
-and other metadata are extracted and stored — but `pages` is empty and the ingestion
-pipeline skips chunking/embedding for them rather than pretending to index unsearchable
-content.
+Images: if OCR (Tesseract, via app/services/extraction/ocr.py) finds real text, the
+image behaves like any other text document from here on (`is_visual_only=False`). If
+OCR finds nothing — or Tesseract isn't installed — the image stays `is_visual_only=True`
+and the ingestion pipeline tries a vision-LLM caption instead; if neither is available,
+it's cataloged (format/dimensions) without being searchable, same as Phase 2.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
 from pypdf import PdfReader
+
+from app.core.config import Settings, get_settings
+from app.services.extraction.ocr import ocr_image_bytes, ocr_pdf_pages
 
 
 @dataclass
@@ -26,11 +35,19 @@ class ExtractedPage:
 
 
 @dataclass
+class ExtractedTable:
+    page: int
+    headers: list[str]
+    rows: list[list[str]]
+
+
+@dataclass
 class ExtractionResult:
     pages: list[ExtractedPage]
     page_count: int
     metadata: dict = field(default_factory=dict)
     is_visual_only: bool = False
+    tables: list[ExtractedTable] = field(default_factory=list)
 
 
 class UnsupportedFileTypeError(ValueError):
@@ -41,9 +58,22 @@ class CorruptedFileError(ValueError):
     pass
 
 
-def extract(file_type: str, raw_bytes: bytes) -> ExtractionResult:
+def render_table_markdown(table: ExtractedTable) -> str:
+    """Renders a structured table as a Markdown table — the text form used for
+    embedding/search. The structured `headers`/`rows` (see ExtractedTable) remain the
+    source of truth, stored verbatim in the chunk's metadata; this is only the
+    searchable serialization of it."""
+    lines = ["| " + " | ".join(table.headers) + " |"]
+    lines.append("|" + "|".join(["---"] * len(table.headers)) + "|")
+    for row in table.rows:
+        lines.append("| " + " | ".join(row) + " |")
+    return "\n".join(lines)
+
+
+def extract(file_type: str, raw_bytes: bytes, settings: Settings | None = None) -> ExtractionResult:
+    settings = settings or get_settings()
     if file_type == "pdf":
-        return _extract_pdf(raw_bytes)
+        return _extract_pdf(raw_bytes, settings)
     if file_type == "txt":
         return _extract_plain_text(raw_bytes)
     if file_type == "markdown":
@@ -53,7 +83,7 @@ def extract(file_type: str, raw_bytes: bytes) -> ExtractionResult:
     if file_type == "html":
         return _extract_html(raw_bytes)
     if file_type == "image":
-        return _extract_image(raw_bytes)
+        return _extract_image(raw_bytes, settings)
     raise UnsupportedFileTypeError(f"No extractor registered for file_type={file_type!r}")
 
 
@@ -66,7 +96,31 @@ def _decode(raw_bytes: bytes) -> str:
     raise CorruptedFileError("Could not decode file as text")
 
 
-def _extract_pdf(raw_bytes: bytes) -> ExtractionResult:
+def _extract_pdf_tables(raw_bytes: bytes) -> list[ExtractedTable]:
+    import io
+
+    import pdfplumber
+
+    tables: list[ExtractedTable] = []
+    try:
+        with pdfplumber.open(io.BytesIO(raw_bytes)) as pdf:
+            for page_number, page in enumerate(pdf.pages, start=1):
+                for raw_table in page.extract_tables() or []:
+                    if len(raw_table) < 2:
+                        continue  # need at least a header row + one data row
+                    header = [(cell or "").strip() for cell in raw_table[0]]
+                    rows = [[(cell or "").strip() for cell in row] for row in raw_table[1:]]
+                    if not any(header) or not any(any(r) for r in rows):
+                        continue
+                    tables.append(ExtractedTable(page=page_number, headers=header, rows=rows))
+    except Exception:
+        # Table detection is a best-effort enhancement; a pdfplumber failure must not
+        # fail extraction when pypdf already produced usable text.
+        return []
+    return tables
+
+
+def _extract_pdf(raw_bytes: bytes, settings: Settings) -> ExtractionResult:
     import io
 
     try:
@@ -86,11 +140,24 @@ def _extract_pdf(raw_bytes: bytes) -> ExtractionResult:
         pages.append(ExtractedPage(page_number=i, text=text))
 
     doc_info = reader.metadata or {}
-    return ExtractionResult(
-        pages=pages,
-        page_count=len(reader.pages),
-        metadata={"title": getattr(doc_info, "title", None)},
-    )
+    metadata: dict = {"title": getattr(doc_info, "title", None)}
+
+    if not any(p.text.strip() for p in pages):
+        # No text layer at all -> likely a scanned PDF. Try OCR before giving up.
+        ocr_pages = ocr_pdf_pages(raw_bytes, settings)
+        if ocr_pages and any(p.strip() for p in ocr_pages):
+            pages = [
+                ExtractedPage(page_number=i, text=text)
+                for i, text in enumerate(ocr_pages, start=1)
+            ]
+            metadata["ocr_used"] = True
+        else:
+            raise CorruptedFileError(
+                "PDF has no extractable text layer and OCR found nothing (or is unavailable)"
+            )
+
+    tables = _extract_pdf_tables(raw_bytes)
+    return ExtractionResult(pages=pages, page_count=len(reader.pages), metadata=metadata, tables=tables)
 
 
 def _extract_plain_text(raw_bytes: bytes) -> ExtractionResult:
@@ -136,21 +203,28 @@ def _extract_docx(raw_bytes: bytes) -> ExtractionResult:
         else:
             lines.append(text)
 
-    # Tables have no structured extraction yet (Phase 4) — flattened as pipe-delimited
-    # rows so their content is at least searchable, not silently dropped.
+    # Tables get structured extraction (headers + rows), not flattened into body text
+    # — see ExtractedTable / render_table_markdown and the module docstring.
+    tables: list[ExtractedTable] = []
     for table in docx_doc.tables:
-        for row in table.rows:
-            cells = [cell.text.strip() for cell in row.cells]
-            if any(cells):
-                lines.append(" | ".join(cells))
+        rows_text = [[cell.text.strip() for cell in row.cells] for row in table.rows]
+        rows_text = [r for r in rows_text if any(r)]
+        if len(rows_text) < 2:
+            continue
+        tables.append(ExtractedTable(page=1, headers=rows_text[0], rows=rows_text[1:]))
 
     full_text = "\n\n".join(lines)
-    if not full_text.strip():
+    if not full_text.strip() and not tables:
         raise CorruptedFileError("DOCX has no extractable text content")
 
     props = docx_doc.core_properties
     metadata = {"title": props.title or None, "author": props.author or None}
-    return ExtractionResult(pages=[ExtractedPage(page_number=1, text=full_text)], page_count=1, metadata=metadata)
+    return ExtractionResult(
+        pages=[ExtractedPage(page_number=1, text=full_text)] if full_text.strip() else [],
+        page_count=1,
+        metadata=metadata,
+        tables=tables,
+    )
 
 
 def _extract_html(raw_bytes: bytes) -> ExtractionResult:
@@ -186,7 +260,7 @@ def _extract_html(raw_bytes: bytes) -> ExtractionResult:
     )
 
 
-def _extract_image(raw_bytes: bytes) -> ExtractionResult:
+def _extract_image(raw_bytes: bytes, settings: Settings) -> ExtractionResult:
     import io
 
     from PIL import Image, UnidentifiedImageError
@@ -198,14 +272,24 @@ def _extract_image(raw_bytes: bytes) -> ExtractionResult:
     except UnidentifiedImageError as exc:
         raise CorruptedFileError(f"Could not parse image: {exc}") from exc
 
+    ocr_text = ocr_image_bytes(raw_bytes, settings)
+    base_metadata = {
+        "image_width": width,
+        "image_height": height,
+        "image_format": image_format,
+    }
+
+    if len(ocr_text) >= settings.min_ocr_text_length:
+        return ExtractionResult(
+            pages=[ExtractedPage(page_number=1, text=ocr_text)],
+            page_count=1,
+            metadata={**base_metadata, "ocr_used": True, "text_extraction": "ocr"},
+            is_visual_only=False,
+        )
+
     return ExtractionResult(
         pages=[],
         page_count=1,
-        metadata={
-            "image_width": width,
-            "image_height": height,
-            "image_format": image_format,
-            "text_extraction": "pending_multimodal_processing",
-        },
+        metadata={**base_metadata, "ocr_used": False, "text_extraction": "pending_visual_description"},
         is_visual_only=True,
     )

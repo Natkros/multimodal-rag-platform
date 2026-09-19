@@ -11,7 +11,7 @@ docs/db_schema.md.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from app.services.extraction.loaders import ExtractionResult
 
@@ -27,6 +27,11 @@ class Chunk:
     section: str | None
     content_type: str = "text"
     token_count: int = 0
+    # Structured data a chunk carries beyond its searchable text — e.g. a table's
+    # headers/rows, or an image's OCR text/caption/dimensions (Phase 4). Persisted
+    # verbatim in Chunk.extra_metadata (see app/models/db.py); the `text` field stays
+    # the source of truth for what gets embedded/searched.
+    extra_metadata: dict = field(default_factory=dict)
 
 
 def estimate_tokens(text: str) -> int:

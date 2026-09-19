@@ -128,7 +128,12 @@ def test_upload_html_gets_indexed(client, sample_docs_dir: Path):
     assert detail["chunk_count"] >= 1
 
 
-def test_upload_image_is_cataloged_without_text_chunks(client, sample_docs_dir: Path):
+def test_upload_image_with_text_is_ocrd_and_searchable(client, sample_docs_dir: Path):
+    """The sample chart has real drawn text (title, axis labels), so with Tesseract
+    installed it should be OCR'd and indexed rather than merely cataloged."""
+    from app.core.config import get_settings
+    from app.services.extraction.ocr import is_ocr_available
+
     path = sample_docs_dir / "acme_quarterly_revenue_chart.png"
     with path.open("rb") as f:
         resp = client.post("/documents/upload", files={"file": (path.name, f, "image/png")})
@@ -138,7 +143,60 @@ def test_upload_image_is_cataloged_without_text_chunks(client, sample_docs_dir: 
     doc_id = resp.json()["document_id"]
     detail = client.get(f"/documents/{doc_id}").json()
     assert detail["processing_status"] == "INDEXED"
-    assert detail["chunk_count"] == 0
+
+    if is_ocr_available(get_settings()):
+        assert detail["chunk_count"] == 1
+    else:
+        assert detail["chunk_count"] == 0  # no OCR, no vision LLM in tests -> catalog-only
+
+
+def test_upload_blank_image_is_cataloged_without_chunks(client):
+    from io import BytesIO
+
+    from PIL import Image
+
+    img = Image.new("RGB", (40, 40), "gray")
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+
+    resp = client.post("/documents/upload", files={"file": ("blank.png", buf.getvalue(), "image/png")})
+    assert resp.status_code == 202
+    doc_id = resp.json()["document_id"]
+    detail = client.get(f"/documents/{doc_id}").json()
+    assert detail["processing_status"] == "INDEXED"
+    assert detail["chunk_count"] == 0  # no OCR text, no vision LLM configured in tests
+
+
+def test_get_chunks_for_document(client):
+    files = {"file": ("facts.txt", b"Acme was founded in Austin in 2010. " * 5, "text/plain")}
+    upload = client.post("/documents/upload", files=files)
+    doc_id = upload.json()["document_id"]
+
+    resp = client.get(f"/documents/{doc_id}/chunks")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] >= 1
+    assert body["chunks"][0]["content_type"] == "text"
+    assert "Austin" in body["chunks"][0]["text"]
+
+
+def test_get_chunks_for_docx_includes_table_chunk(client, sample_docs_dir: Path):
+    path = sample_docs_dir / "acme_vendor_security_policy.docx"
+    with path.open("rb") as f:
+        upload = client.post("/documents/upload", files={"file": (path.name, f, "application/octet-stream")})
+    doc_id = upload.json()["document_id"]
+
+    resp = client.get(f"/documents/{doc_id}/chunks")
+    assert resp.status_code == 200
+    content_types = {c["content_type"] for c in resp.json()["chunks"]}
+    assert "table" in content_types
+    table_chunk = next(c for c in resp.json()["chunks"] if c["content_type"] == "table")
+    assert table_chunk["extra_metadata"]["headers"]
+
+
+def test_get_chunks_for_nonexistent_document_404(client):
+    resp = client.get("/documents/does-not-exist/chunks")
+    assert resp.status_code == 404
 
 
 def test_check_staleness_flags_nothing_when_config_unchanged(client, sample_docs_dir: Path):

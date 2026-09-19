@@ -4,13 +4,16 @@ import io
 
 import pytest
 from docx import Document as DocxDocument
-from PIL import Image
+from PIL import Image, ImageDraw
 
+from app.core.config import get_settings
 from app.services.extraction.loaders import (
     CorruptedFileError,
     UnsupportedFileTypeError,
     extract,
+    render_table_markdown,
 )
+from app.services.extraction.ocr import is_ocr_available
 
 
 def _docx_bytes(paragraphs: list[tuple[str, str | None]]) -> bytes:
@@ -24,8 +27,17 @@ def _docx_bytes(paragraphs: list[tuple[str, str | None]]) -> bytes:
     return buf.getvalue()
 
 
-def _png_bytes(width=64, height=32) -> bytes:
-    img = Image.new("RGB", (width, height), "blue")
+def _png_bytes(width=64, height=32, color="blue") -> bytes:
+    img = Image.new("RGB", (width, height), color)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _png_with_text(text: str, width=500, height=120) -> bytes:
+    img = Image.new("RGB", (width, height), "white")
+    draw = ImageDraw.Draw(img)
+    draw.text((15, 40), text, fill="black")
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()
@@ -38,7 +50,7 @@ def test_extract_docx_preserves_headings_as_markdown():
     assert "Some body text." in result.pages[0].text
 
 
-def test_extract_docx_flattens_tables():
+def test_extract_docx_tables_are_structured_not_flattened():
     doc = DocxDocument()
     doc.add_paragraph("Intro paragraph.")
     table = doc.add_table(rows=1, cols=2)
@@ -51,7 +63,33 @@ def test_extract_docx_flattens_tables():
     doc.save(buf)
 
     result = extract("docx", buf.getvalue())
-    assert "Tier 1 | SOC 2" in result.pages[0].text
+    assert "Tier 1" not in result.pages[0].text  # not flattened into body text
+    assert len(result.tables) == 1
+    assert result.tables[0].headers == ["Tier", "Requirement"]
+    assert result.tables[0].rows == [["Tier 1", "SOC 2"]]
+
+
+def test_extract_docx_with_only_a_table_and_no_paragraphs_does_not_raise():
+    doc = DocxDocument()
+    table = doc.add_table(rows=2, cols=2)
+    table.rows[0].cells[0].text = "A"
+    table.rows[0].cells[1].text = "B"
+    table.rows[1].cells[0].text = "1"
+    table.rows[1].cells[1].text = "2"
+    buf = io.BytesIO()
+    doc.save(buf)
+
+    result = extract("docx", buf.getvalue())
+    assert result.pages == []
+    assert len(result.tables) == 1
+
+
+def test_render_table_markdown():
+    from app.services.extraction.loaders import ExtractedTable
+
+    table = ExtractedTable(page=1, headers=["A", "B"], rows=[["1", "2"]])
+    rendered = render_table_markdown(table)
+    assert rendered == "| A | B |\n|---|---|\n| 1 | 2 |"
 
 
 def test_extract_docx_empty_raises_corrupted():
@@ -99,13 +137,23 @@ def test_extract_html_empty_raises_corrupted():
         extract("html", b"<html><body></body></html>")
 
 
-def test_extract_image_returns_visual_only_with_dimensions():
+def test_extract_image_with_no_text_stays_visual_only():
     result = extract("image", _png_bytes(width=100, height=50))
     assert result.is_visual_only is True
     assert result.pages == []
     assert result.metadata["image_width"] == 100
     assert result.metadata["image_height"] == 50
     assert result.metadata["image_format"] == "PNG"
+    assert result.metadata["ocr_used"] is False
+
+
+@pytest.mark.skipif(not is_ocr_available(get_settings()), reason="Tesseract not installed")
+def test_extract_image_with_text_is_ocrd():
+    result = extract("image", _png_with_text("Quarterly Revenue Report 2025"))
+    assert result.is_visual_only is False
+    assert len(result.pages) == 1
+    assert "revenue" in result.pages[0].text.lower() or "2025" in result.pages[0].text
+    assert result.metadata["ocr_used"] is True
 
 
 def test_extract_image_garbage_bytes_raises_corrupted():
@@ -116,3 +164,59 @@ def test_extract_image_garbage_bytes_raises_corrupted():
 def test_extract_unsupported_type_raises():
     with pytest.raises(UnsupportedFileTypeError):
         extract("zip", b"PK\x03\x04")
+
+
+def _pdf_with_table() -> bytes:
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=letter)
+    data = [["Tier", "Requirement"], ["Tier 1", "SOC 2 Type II"], ["Tier 2", "Documented policy"]]
+    table = Table(data)
+    table.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 1, colors.black)]))
+    doc.build([table])
+    return buf.getvalue()
+
+
+def _scanned_pdf() -> bytes:
+    """A PDF whose only content is an embedded image — no real text layer, like a
+    scanned document."""
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+
+    image_bytes = _png_with_text("Scanned invoice number 4471")
+    img_path_buf = io.BytesIO(image_bytes)
+    from PIL import Image as PILImage
+
+    img = PILImage.open(img_path_buf)
+
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=letter)
+    c.drawInlineImage(img, 50, 500, width=400, height=96)
+    c.save()
+    return buf.getvalue()
+
+
+def test_extract_pdf_detects_structured_table():
+    result = extract("pdf", _pdf_with_table())
+    assert len(result.tables) == 1
+    assert result.tables[0].headers == ["Tier", "Requirement"]
+    assert ["Tier 1", "SOC 2 Type II"] in result.tables[0].rows
+
+
+@pytest.mark.skipif(not is_ocr_available(get_settings()), reason="Tesseract/Poppler not installed")
+def test_extract_scanned_pdf_falls_back_to_ocr():
+    result = extract("pdf", _scanned_pdf())
+    assert result.metadata.get("ocr_used") is True
+    assert len(result.pages) == 1
+    assert result.pages[0].text.strip() != ""
+
+
+def test_extract_pdf_with_no_text_and_no_ocr_raises_corrupted(monkeypatch):
+    import app.services.extraction.loaders as loaders_module
+
+    monkeypatch.setattr(loaders_module, "ocr_pdf_pages", lambda raw, settings: [])
+    with pytest.raises(CorruptedFileError):
+        extract("pdf", _scanned_pdf())

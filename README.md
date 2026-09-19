@@ -25,7 +25,7 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
 ```
 `*` reranking ships in Phase 7.
 
-## 3. Features (current — Phase 0–3)
+## 3. Features (current — Phase 0–4)
 
 - Upload PDF / TXT / Markdown / DOCX / HTML / images; idempotent via content-hash
   dedup (`409` on repeat upload)
@@ -36,9 +36,19 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
   understands, so no format-specific chunking logic
 - Text normalization step (Unicode NFC, line-ending/whitespace canonicalization)
   between extraction and chunking
-- Images are cataloged (format, dimensions, content-hash dedup) but not yet chunked
-  or embedded — honest about what's real until Phase 4/5 add OCR and visual
-  description
+- **OCR** (Tesseract) for scanned PDFs (no text layer → rendered page images → OCR'd)
+  and images with visible text — genuinely tested against installed OCR binaries, not
+  mocked (see [ADR 0004](docs/decisions/0004-phase4-multimodal-processing.md))
+- **Structured table extraction** (PDF via pdfplumber, DOCX via python-docx): tables
+  become their own searchable chunks (`content_type="table"`) with headers/rows
+  preserved verbatim, never flattened into surrounding text
+- **Visual descriptions**: images with no OCR-extractable text (photos, diagrams) get
+  a caption from a vision-capable LLM when one is configured, making even a
+  wordless image searchable; with neither OCR text nor a caption available, an image
+  is still cataloged (format/dimensions) without being searchable — a valid outcome,
+  not a failure
+- `GET /documents/{id}/chunks` exposes chunk-level provenance — `content_type` and
+  `extra_metadata` (table headers/rows, image OCR text/caption)
 - Staleness detection: documents indexed under a chunking strategy or embedding model
   that no longer matches current config are flagged `REINDEX_REQUIRED` via
   `POST /documents/check-staleness`
@@ -64,7 +74,10 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
 | PDF extraction | `pypdf` | lightweight, pure-Python, no system dependencies |
 | DOCX extraction | `python-docx` | reads paragraph styles (for heading detection) and tables directly from the OOXML structure |
 | HTML extraction | `beautifulsoup4` + `lxml` | robust real-world HTML parsing (malformed markup, scripts/styles to strip) |
-| Image metadata | `Pillow` | format/dimension extraction now; the same library Phase 4's OCR preprocessing will build on |
+| Image metadata | `Pillow` | format/dimension extraction, and OCR preprocessing |
+| OCR | `pytesseract` (Tesseract) + `pdf2image` (Poppler) | industry-standard, free, local OCR — no API key or per-page cost; system binaries, not pip packages, see [ADR 0004](docs/decisions/0004-phase4-multimodal-processing.md) |
+| Table extraction | `pdfplumber` (PDF) + `python-docx` (DOCX) | structured headers/rows, not flattened text — pdfplumber specifically for its table-detection support pypdf lacks |
+| Visual descriptions | Anthropic Claude vision (same LLM client as generation) | reuses the existing LLM integration rather than adding a second model/provider just for captioning |
 | Containerization | Docker / Compose | one-command local stack |
 | Tests | pytest + FastAPI TestClient | fast, no external services required |
 
@@ -76,13 +89,18 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
 
 ## 6. Multimodal Pipeline
 
-Partially built. Phase 2 adds DOCX/HTML text extraction and catalogs images (format,
-dimensions, metadata) with real content-hash dedup — but images carry no searchable
-text yet. `is_visual_only` extraction results skip chunking/embedding entirely rather
-than indexing an empty string or fabricating placeholder text. OCR, table structure
-extraction, and visual description are Phase 4/5 target:
-`text → OCR → tables → images → unified retrieval`. A scanned/image-only PDF today
-still indexes with zero extractable text and is marked `FAILED` with a clear error.
+`text → OCR → tables → images → unified representation → indexing`. Scanned PDFs (no
+text layer) fall back to rendering each page and running Tesseract OCR over it. Images
+run OCR first; if that finds real text they become a normal searchable chunk, and if
+not, a vision-LLM caption is attempted (when an LLM is configured) as a second chance.
+An image with neither OCR text nor a caption is still cataloged (format, dimensions,
+content-hash dedup) without being searchable — a valid, tested outcome, not a failure.
+PDF/DOCX tables are extracted as structured chunks (`content_type="table"`, headers
+and rows preserved verbatim in `extra_metadata`) rather than flattened into
+surrounding text. **Not yet built**: layout analysis / bounding boxes (no page-object
+detection model is wired up — see [ADR 0004](docs/decisions/0004-phase4-multimodal-processing.md)
+for why that's explicitly out of scope so far) and Phase 5's multimodal *retrieval*
+(routing a query to text/table/image results specifically).
 
 ## 7. Evaluation
 
@@ -108,7 +126,8 @@ from Recall/MRR rather than silently averaged in), `all-MiniLM-L6-v2` embeddings
 
 | System | Recall@5 | MRR | nDCG@5 | Latency p50 |
 |---|---:|---:|---:|---:|
-| Dense (Phase 1) | 1.00 | 0.875 | 0.906 | 12.7 ms |
+| Dense, Phase 1 corpus (4 docs) | 1.00 | 0.875 | 0.906 | 12.7 ms |
+| Dense, Phase 4 corpus (8 docs, incl. OCR'd scan + OCR'd image) | 1.00 | 0.750 | 0.812 | 15.0 ms |
 | Hybrid (Phase 6) | not yet implemented | | | |
 | Hybrid + Reranker (Phase 7) | not yet implemented | | | |
 
@@ -116,8 +135,14 @@ Reproduce: `python scripts/run_eval.py` (full report incl. per-question rows wri
 `evaluation/reports/`). Recall@5 of 1.0 on a 10-question seed set is expected and not
 impressive by itself — the dataset is small and hand-authored against one corpus; it
 exists to prove the harness is wired correctly end-to-end, not as a headline number.
-The real signal comes from Phase 6/7's *comparative* deltas once the dataset grows
-(Phase 13) and gets harder multi-document/table/image questions.
+The MRR/nDCG dip between the two rows is a real, honest finding, not noise: adding
+Phase 4's OCR'd scanned PDF and OCR'd chart as genuine retrieval candidates gives the
+retriever more chunks that can plausibly rank above the "correct" one for a few
+questions — more real content in the index costs a little precision at the very top
+until reranking (Phase 7) is added. That's the kind of tradeoff this harness exists to
+surface, not to hide. The bigger signal comes from Phase 6/7's *comparative* deltas
+once the dataset grows (Phase 13) and gets harder multi-document/table/image
+questions.
 
 **Phase 3 — chunking strategy comparison** (`fixed` vs `recursive` vs `semantic`,
 measured with content-based relevance since chunk IDs aren't comparable across
@@ -177,9 +202,20 @@ curl -X POST http://localhost:8000/query -H "Content-Type: application/json" \
 
 ## 14. Limitations (honest, current)
 
-- Images are cataloged but not yet searchable — no OCR or visual description (Phase 4/5)
-- No structured table extraction (DOCX/PDF tables are flattened to text, not
-  rows/columns) — structured extraction is Phase 4
+- No layout analysis / bounding boxes — table and image chunks carry page-level
+  provenance, not pixel coordinates (see [ADR 0004](docs/decisions/0004-phase4-multimodal-processing.md)
+  for why this is explicitly deferred rather than half-built)
+- Images with no OCR-extractable text and no configured vision LLM are still
+  cataloged-only, not searchable — expected, not a bug (see §6)
+- A PDF table's content can appear twice in the index (once in its page's ordinary
+  text chunk via pypdf, once as its own structured table chunk via pdfplumber) —
+  disclosed duplication, not silently hidden (ADR 0004)
+- No multimodal *retrieval* yet (routing a query to text vs. table vs. image
+  specifically) — Phase 5
+- OCR requires the Tesseract and Poppler system binaries (not pip packages) — a fresh
+  clone without them still works, just degrades gracefully to cataloging scanned
+  PDFs/images instead of indexing them (see [ADR 0004](docs/decisions/0004-phase4-multimodal-processing.md)
+  for install instructions; Docker and CI install them automatically)
 - Dense-only retrieval; no BM25, fusion, or reranking yet (Phase 6/7)
 - No conversation memory — every `/query` call is stateless (Phase 12)
 - No caching, rate limiting, or auth (Phase 17/18)
@@ -215,10 +251,12 @@ docker compose up --build
 pytest tests/ -v
 ```
 
-88 tests, all passing. No external services or API keys are required — the vector
+113 tests, all passing. No external services or API keys are required — the vector
 store, DB, and embedding model all run locally by default (see
-[ADR 0001](docs/decisions/0001-phase1-stack-choices.md)). Generation-path tests mock
-the LLM client.
+[ADR 0001](docs/decisions/0001-phase1-stack-choices.md)). Generation-path and
+vision-caption tests mock the LLM client. OCR-dependent tests run for real against
+installed Tesseract/Poppler binaries and skip gracefully
+(`@pytest.mark.skipif`) if they're absent, rather than mocking OCR entirely.
 
 ## Repository Structure
 
@@ -241,8 +279,8 @@ docker/, Dockerfile, docker-compose.yml
 | 1 — Basic MVP | ✅ done |
 | 2 — Proper ingestion (DOCX/HTML/image cataloging, normalization, staleness) | ✅ done |
 | 3 — Intelligent chunking (fixed/recursive/semantic, measured comparison) | ✅ done |
-| 4 — Multimodal processing (OCR/tables/images) | ⏳ next |
-| 5 — Multimodal retrieval | ⏳ |
+| 4 — Multimodal processing (OCR, structured tables, visual descriptions) | ✅ done |
+| 5 — Multimodal retrieval (route queries to text/table/image specifically) | ⏳ next |
 | 6 — Hybrid search (BM25 fusion) | ⏳ |
 | 7 — Reranking | ⏳ |
 | 8 — Query intelligence | ⏳ |
