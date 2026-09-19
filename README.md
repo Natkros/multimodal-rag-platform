@@ -296,19 +296,41 @@ returned by `POST /query` — see [docs/api.md](docs/api.md).
 ## 10. Failure Handling
 
 Handled and tested today: corrupted/unparseable PDF/DOCX/image, empty file,
-unsupported file type, oversized upload, duplicate upload, LLM not configured (`503`,
-not a crash), zero retrieval matches (explicit abstention, not a hallucinated answer).
-See `tests/api/test_documents.py`, `tests/api/test_query.py`,
-`tests/integration/test_ingestion_pipeline.py`,
-`tests/unit/test_extraction_loaders.py`. Broader adversarial testing (Phase 14) is not
-yet built.
+unsupported file type, oversized upload (genuinely tested as of Phase 14 — it was
+only claimed before), duplicate upload, LLM not configured (`503`, not a crash), zero
+retrieval matches (explicit abstention, not a hallucinated answer). See
+`tests/api/test_documents.py`, `tests/api/test_query.py`,
+`tests/integration/test_ingestion_pipeline.py`, `tests/unit/test_extraction_loaders.py`.
+
+**Phase 14 — adversarial testing** (`tests/adversarial/test_adversarial.py`):
+malicious upload filenames (path traversal, both `../`-style and `..\`-style,
+absolute paths), extreme/malformed query input (over-length, control characters,
+SQL-injection-shaped strings, unicode/RTL/emoji content), and prompt injection via
+both the user's question and retrieved document content. This pass found and fixed a
+real path-traversal vulnerability (see §11) rather than only adding tests for things
+already known to be safe — full writeup:
+[ADR 0014](docs/decisions/0014-phase14-adversarial-testing.md).
 
 ## 11. Security
 
 Current posture is **local-dev only**: no auth, CORS restricted to `localhost:3000` by
 default, secrets via environment variables only (`.env` git-ignored, `.env.example`
 has no real values), upload size/type validation enforced. API-key/JWT auth, rate
-limiting, and input sanitization hardening are Phase 18.
+limiting, and broader input sanitization hardening are Phase 18.
+
+**Phase 14 fix**: upload filenames were used unsanitized to build the on-disk save
+path (`app/api/routes/documents.py`), a genuine path-traversal vulnerability — a
+filename like `../../../etc/passwd` or `..\..\evil.dll` could write outside
+`upload_dir`. Fixed with `app/utils/hashing.py::safe_filename()`, which strips
+directory components before the filename touches the filesystem (the original,
+unsanitized filename is still stored in the DB for display). See
+[ADR 0014](docs/decisions/0014-phase14-adversarial-testing.md) for the full
+writeup, including a disclosed, *not* fixed limitation: nothing in this codebase
+can prevent a real LLM from being manipulated by instruction-shaped text embedded in
+retrieved document content (indirect prompt injection) — the system prompt instructs
+evidence-only use of context, but there is no code-level guarantee, and Phase 11's
+citation validator checks grounding, not intent, so it would not catch a "successful"
+injection that gets echoed back verbatim and cited.
 
 ## 12. Deployment
 
@@ -437,7 +459,7 @@ docker/, Dockerfile, docker-compose.yml
 | 11 — Citation engine (deterministic validation, on by default) | ✅ done |
 | 12 — Conversational RAG (real DB-backed conversation persistence) | ✅ done |
 | 13 — Evaluation framework (100–300 Qs) | 57 Qs, expanded from 12 (corpus-limited — see ADR 0013) ⏳ partial |
-| 14 — Failure testing | partial (corrupted files across all formats), full adversarial suite ⏳ |
+| 14 — Failure testing | ✅ done — corrupted files, path traversal (found + fixed), extreme/malicious input, prompt injection (tested + honestly disclosed limits) |
 | 15 — Backend refactor | done by Phase 1's structure |
 | 16 — Async job queue | ⏳ (Phase 1 uses BackgroundTasks) |
 | 17 — Caching | ⏳ |

@@ -18,7 +18,7 @@ from app.schemas.documents import (
 from app.services.ingestion.pipeline import run_ingestion
 from app.services.ingestion.staleness import find_and_flag_stale_documents
 from app.services.retrieval.factory import get_sparse_index, get_vector_store
-from app.utils.hashing import classify_file_type, deterministic_document_id, sha256_bytes
+from app.utils.hashing import classify_file_type, deterministic_document_id, safe_filename, sha256_bytes
 
 router = APIRouter(tags=["documents"])
 
@@ -70,7 +70,9 @@ async def upload_document(
     job = repo.create_job(Job(document_id=document.document_id, job_type="ingest", status="queued"))
 
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
-    (settings.upload_dir / f"{document.document_id}_{document.filename}").write_bytes(raw_bytes)
+    (settings.upload_dir / f"{document.document_id}_{safe_filename(document.filename)}").write_bytes(
+        raw_bytes
+    )
 
     background_tasks.add_task(
         run_ingestion,
@@ -89,9 +91,7 @@ async def upload_document(
 def list_documents(db: Session = Depends(db_dependency)):
     repo = DocumentRepository(db)
     docs = repo.list_all()
-    return DocumentListResponse(
-        documents=[DocumentResponse.model_validate(d) for d in docs], total=len(docs)
-    )
+    return DocumentListResponse(documents=[DocumentResponse.model_validate(d) for d in docs], total=len(docs))
 
 
 @router.get("/documents/{document_id}", response_model=DocumentResponse)
@@ -141,7 +141,7 @@ def reindex_document(
     if doc is None:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    raw_path = settings.upload_dir / f"{document_id}_{doc.filename}"
+    raw_path = settings.upload_dir / f"{document_id}_{safe_filename(doc.filename)}"
     if not raw_path.exists():
         raise HTTPException(status_code=409, detail="Original file no longer available for reindexing")
 
