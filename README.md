@@ -382,7 +382,16 @@ injection that gets echoed back verbatim and cited.
 
 Local: `docker compose up` (see [docs/deployment.md](docs/deployment.md)). **No cloud
 deployment exists yet** — that file says so explicitly and will only claim otherwise
-once Phase 21/24 actually ship it.
+once Phase 24 actually ships it.
+
+**Phase 21**: audited `Dockerfile`/`frontend/Dockerfile`/`docker-compose.yml`
+against everything Phases 16-20 added; found and fixed a real gap (no
+`.dockerignore` existed, so every `docker build` sent `.venv/` — measured at
+**1.3GB** — plus `.git/` and `data/` to the Docker daemon as build context for no
+reason). A real
+`docker build`/`docker compose up` could not be run in this project's dev sandbox
+(no working Docker daemon here); CI's `docker-build` job is this project's actual
+continuous build verification — see [ADR 0021](docs/decisions/0021-phase21-dockerization.md).
 
 `docker-compose.yml` includes a `worker` service (Phase 16, same image as `api`,
 running `workers/ingestion_worker.py`) — it only does something once
@@ -519,7 +528,7 @@ docker/, Dockerfile, docker-compose.yml
 | 18 — Security | ✅ done — opt-in API key auth + Redis rate limiting, always-on security headers |
 | 19 — Observability | ✅ done — `GET /metrics` (Prometheus), structured JSON logging (`LOG_JSON=true`), per-request logging middleware |
 | 20 — Performance engineering | ✅ done — profiled the real ingestion pipeline, GZip compression + DB pool tuning applied and measured |
-| 21 — Dockerization | ✅ done |
+| 21 — Dockerization | ✅ done — audited, added missing `.dockerignore`; real `docker build` verification deferred to CI (no Docker daemon in this dev sandbox — see ADR 0021) |
 | 22 — Testing | ✅ ongoing, expands every phase |
 | 23 — CI/CD | ✅ test+build; deploy job added in Phase 24 |
 | 24 — Cloud deployment | ⏳ |
