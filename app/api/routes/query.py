@@ -30,9 +30,10 @@ def query(
     retriever = DenseRetriever(embedder=embedder, vector_store=vector_store)
 
     retrieval_start = time.perf_counter()
-    retrieved = retriever.retrieve(
+    retrieval_result = retriever.retrieve_with_classification(
         request.question, top_k=request.top_k, document_ids=request.document_ids
     )
+    retrieved = retrieval_result.chunks
     retrieval_latency_ms = (time.perf_counter() - retrieval_start) * 1000
 
     try:
@@ -54,6 +55,7 @@ def query(
                 page=s.page,
                 chunk_id=s.chunk_id,
                 relevance_score=round(s.score, 4),
+                content_type=s.content_type,
             )
             for s in result.sources
         ],
@@ -64,5 +66,6 @@ def query(
             retrieval_latency_ms=round(retrieval_latency_ms, 2),
             generation_latency_ms=round(result.generation_latency_ms, 2),
             total_latency_ms=round(total_latency_ms, 2),
+            matched_content_types=retrieval_result.matched_content_types,
         ),
     )

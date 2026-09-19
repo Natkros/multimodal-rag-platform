@@ -67,3 +67,30 @@ def test_query_document_scoped_filtering(client, monkeypatch):
     body = resp.json()
     for source in body["sources"]:
         assert source["document_id"] == doc1_id
+
+
+def test_query_routes_table_question_to_table_chunk(client, monkeypatch, sample_docs_dir):
+    import app.api.routes.query as query_module
+
+    monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
+
+    path = sample_docs_dir / "acme_vendor_security_policy.docx"
+    with path.open("rb") as f:
+        client.post("/documents/upload", files={"file": (path.name, f, "application/octet-stream")})
+
+    resp = client.post("/query", json={"question": "Compare the vendor tiers in the table.", "top_k": 5})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["retrieval"]["matched_content_types"] == ["table"]
+    assert all(s["content_type"] == "table" for s in body["sources"])
+
+
+def test_query_routes_generic_question_without_content_type_restriction(client, monkeypatch):
+    import app.api.routes.query as query_module
+
+    monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
+    _upload(client, "facts.txt", b"Acme Corporation was founded in 2010 in Austin, Texas. " * 3)
+
+    resp = client.post("/query", json={"question": "When was Acme founded?", "top_k": 5})
+    assert resp.status_code == 200
+    assert resp.json()["retrieval"]["matched_content_types"] == []

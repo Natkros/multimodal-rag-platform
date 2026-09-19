@@ -1,0 +1,217 @@
+{
+  "system": "dense_only",
+  "metrics": {
+    "n_queries": 12,
+    "n_answerable_queries": 10,
+    "n_unanswerable_queries": 2,
+    "recall@1": 0.6,
+    "precision@1": 0.6,
+    "ndcg@1": 0.6,
+    "hit_rate@1": 0.6,
+    "recall@3": 0.8,
+    "precision@3": 0.26666666666666666,
+    "ndcg@3": 0.7261859507142916,
+    "hit_rate@3": 0.8,
+    "recall@5": 1.0,
+    "precision@5": 0.2,
+    "ndcg@5": 0.8123212623289702,
+    "hit_rate@5": 1.0,
+    "recall@10": 1.0,
+    "precision@10": 0.2,
+    "ndcg@10": 0.8123212623289702,
+    "hit_rate@10": 1.0,
+    "mrr": 0.75,
+    "latency_p50_ms": 14.637999993283302,
+    "latency_p95_ms": 25.67599999019876
+  },
+  "rows": [
+    {
+      "id": "q001",
+      "question": "How many days per week can Acme employees work remotely without a special request?",
+      "query_type": "factual",
+      "retrieved": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0",
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0"
+      ],
+      "latency_ms": 25.68
+    },
+    {
+      "id": "q002",
+      "question": "How much PTO do full-time Acme employees accrue per month, and what is the annual cap?",
+      "query_type": "factual",
+      "retrieved": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0",
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0",
+        "455d0a01-59be-5ad2-bdcd-86116bf92972::chunk-0"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0"
+      ],
+      "latency_ms": 19.46
+    },
+    {
+      "id": "q003",
+      "question": "How long is primary caregiver parental leave at Acme, and is it fully paid?",
+      "query_type": "table",
+      "retrieved": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0",
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0"
+      ],
+      "latency_ms": 14.86
+    },
+    {
+      "id": "q004",
+      "question": "What is Acme's cancellation and refund policy for annual customer contracts?",
+      "query_type": "factual",
+      "retrieved": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0",
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0",
+        "90851a4e-f940-5a00-a273-c5d695152492::chunk-517"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1"
+      ],
+      "latency_ms": 13.59
+    },
+    {
+      "id": "q005",
+      "question": "How quickly must employees enable MFA after being hired, and how quickly must a security incident be reported?",
+      "query_type": "multi_document",
+      "retrieved": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-1",
+        "90851a4e-f940-5a00-a273-c5d695152492::chunk-382"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1"
+      ],
+      "latency_ms": 16.09
+    },
+    {
+      "id": "q006",
+      "question": "What was Acme's Q2 2025 revenue and operating margin?",
+      "query_type": "factual",
+      "retrieved": [
+        "455d0a01-59be-5ad2-bdcd-86116bf92972::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0",
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1"
+      ],
+      "latency_ms": 13.68
+    },
+    {
+      "id": "q007",
+      "question": "Compare Acme's Q2 2024 revenue to Q2 2025 revenue and explain the primary growth drivers.",
+      "query_type": "comparison",
+      "retrieved": [
+        "455d0a01-59be-5ad2-bdcd-86116bf92972::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-1",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0",
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1"
+      ],
+      "latency_ms": 15.55
+    },
+    {
+      "id": "q008",
+      "question": "What happens to unused PTO above 5 days at the end of the fiscal year?",
+      "query_type": "factual",
+      "retrieved": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0",
+        "455d0a01-59be-5ad2-bdcd-86116bf92972::chunk-0",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-1"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0"
+      ],
+      "latency_ms": 14.3
+    },
+    {
+      "id": "q009",
+      "question": "According to the paper, what does the Transformer architecture rely on instead of recurrence and convolution?",
+      "query_type": "semantic",
+      "retrieved": [
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-5",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-3",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-4",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-0",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-20"
+      ],
+      "expected": [
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-0"
+      ],
+      "latency_ms": 14.18
+    },
+    {
+      "id": "q010",
+      "question": "What is Acme's policy on quantum computing research grants?",
+      "query_type": "unanswerable",
+      "retrieved": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0",
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0"
+      ],
+      "expected": [],
+      "latency_ms": 14.44
+    },
+    {
+      "id": "q011",
+      "question": "What was the weather in Austin on the day Acme was founded?",
+      "query_type": "unanswerable",
+      "retrieved": [
+        "90851a4e-f940-5a00-a273-c5d695152492::chunk-201",
+        "f8317b37-5a62-511c-a7ed-01627ac0b2c3::chunk-274",
+        "90851a4e-f940-5a00-a273-c5d695152492::chunk-180",
+        "90851a4e-f940-5a00-a273-c5d695152492::chunk-196",
+        "90851a4e-f940-5a00-a273-c5d695152492::chunk-174"
+      ],
+      "expected": [],
+      "latency_ms": 14.64
+    },
+    {
+      "id": "q012",
+      "question": "second quarter revenue",
+      "query_type": "ambiguous",
+      "retrieved": [
+        "455d0a01-59be-5ad2-bdcd-86116bf92972::chunk-0",
+        "90851a4e-f940-5a00-a273-c5d695152492::chunk-514",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-1",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1"
+      ],
+      "latency_ms": 12.5
+    }
+  ]
+}

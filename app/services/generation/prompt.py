@@ -26,6 +26,8 @@ def build_context_block(chunks: list[RetrievedChunk]) -> str:
             loc += f", page {chunk.page}"
         if chunk.section:
             loc += f", section '{chunk.section}'"
+        if chunk.content_type != "text":
+            loc += f" ({chunk.content_type})"
         lines.append(f"[{i}] Source: {loc}\n{chunk.text}")
     return "\n\n".join(lines)
 

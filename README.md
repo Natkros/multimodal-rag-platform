@@ -25,7 +25,7 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
 ```
 `*` reranking ships in Phase 7.
 
-## 3. Features (current — Phase 0–4)
+## 3. Features (current — Phase 0–5)
 
 - Upload PDF / TXT / Markdown / DOCX / HTML / images; idempotent via content-hash
   dedup (`409` on repeat upload)
@@ -49,6 +49,12 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
   not a failure
 - `GET /documents/{id}/chunks` exposes chunk-level provenance — `content_type` and
   `extra_metadata` (table headers/rows, image OCR text/caption)
+- **Multimodal retrieval routing**: a question's wording ("compare the two tables",
+  "what does the chart show") routes retrieval to `table`/`image`/`text` chunks
+  specifically instead of blending everything by score; `POST /query` surfaces which
+  content type(s) it matched (`retrieval.matched_content_types`) and each source's
+  `content_type`, so routing is verifiable, not just claimed (see
+  [ADR 0005](docs/decisions/0005-phase5-multimodal-retrieval.md))
 - Staleness detection: documents indexed under a chunking strategy or embedding model
   that no longer matches current config are flagged `REINDEX_REQUIRED` via
   `POST /documents/check-staleness`
@@ -97,10 +103,14 @@ An image with neither OCR text nor a caption is still cataloged (format, dimensi
 content-hash dedup) without being searchable — a valid, tested outcome, not a failure.
 PDF/DOCX tables are extracted as structured chunks (`content_type="table"`, headers
 and rows preserved verbatim in `extra_metadata`) rather than flattened into
-surrounding text. **Not yet built**: layout analysis / bounding boxes (no page-object
-detection model is wired up — see [ADR 0004](docs/decisions/0004-phase4-multimodal-processing.md)
-for why that's explicitly out of scope so far) and Phase 5's multimodal *retrieval*
-(routing a query to text/table/image results specifically).
+surrounding text. On the retrieval side (Phase 5), a query's wording routes search to
+text/table/image chunks specifically when it clearly points that way (`"compare the
+two tables"` → table-only; `"what does the chart show?"` → image-only), falling back
+to an unrestricted blended search otherwise — see
+[ADR 0005](docs/decisions/0005-phase5-multimodal-retrieval.md). **Not yet built**:
+layout analysis / bounding boxes (no page-object detection model is wired up — see
+[ADR 0004](docs/decisions/0004-phase4-multimodal-processing.md) for why that's
+explicitly out of scope so far).
 
 ## 7. Evaluation
 
@@ -210,8 +220,13 @@ curl -X POST http://localhost:8000/query -H "Content-Type: application/json" \
 - A PDF table's content can appear twice in the index (once in its page's ordinary
   text chunk via pypdf, once as its own structured table chunk via pdfplumber) —
   disclosed duplication, not silently hidden (ADR 0004)
-- No multimodal *retrieval* yet (routing a query to text vs. table vs. image
-  specifically) — Phase 5
+- Query→content-type routing (Phase 5) is keyword-based, not an LLM call — it catches
+  clear wording ("chart", "table", "the document says") but won't infer intent from
+  phrasing that doesn't use those cues; Phase 8's query intelligence is where deeper
+  language understanding belongs
+- Multi-type queries (e.g. "does the chart match the table?") run one filtered search
+  per matched type and merge by score — no vector store here supports a richer
+  "OR"/"in" filter, so this is N round-trips instead of one (ADR 0005)
 - OCR requires the Tesseract and Poppler system binaries (not pip packages) — a fresh
   clone without them still works, just degrades gracefully to cataloging scanned
   PDFs/images instead of indexing them (see [ADR 0004](docs/decisions/0004-phase4-multimodal-processing.md)
@@ -251,7 +266,7 @@ docker compose up --build
 pytest tests/ -v
 ```
 
-113 tests, all passing. No external services or API keys are required — the vector
+132 tests, all passing. No external services or API keys are required — the vector
 store, DB, and embedding model all run locally by default (see
 [ADR 0001](docs/decisions/0001-phase1-stack-choices.md)). Generation-path and
 vision-caption tests mock the LLM client. OCR-dependent tests run for real against
@@ -280,8 +295,8 @@ docker/, Dockerfile, docker-compose.yml
 | 2 — Proper ingestion (DOCX/HTML/image cataloging, normalization, staleness) | ✅ done |
 | 3 — Intelligent chunking (fixed/recursive/semantic, measured comparison) | ✅ done |
 | 4 — Multimodal processing (OCR, structured tables, visual descriptions) | ✅ done |
-| 5 — Multimodal retrieval (route queries to text/table/image specifically) | ⏳ next |
-| 6 — Hybrid search (BM25 fusion) | ⏳ |
+| 5 — Multimodal retrieval (route queries to text/table/image specifically) | ✅ done |
+| 6 — Hybrid search (BM25 fusion) | ⏳ next |
 | 7 — Reranking | ⏳ |
 | 8 — Query intelligence | ⏳ |
 | 9 — Context engineering | ⏳ |

@@ -136,7 +136,8 @@ status to `REINDEX_REQUIRED`. Does not reindex anything itself — pair with
       "document_name": "acme_employee_handbook.md",
       "page": 1,
       "chunk_id": "8f14e...c3a1::chunk-7",
-      "relevance_score": 0.91
+      "relevance_score": 0.91,
+      "content_type": "text"
     }
   ],
   "retrieval": {
@@ -145,13 +146,22 @@ status to `REINDEX_REQUIRED`. Does not reindex anything itself — pair with
     "context_tokens": 412,
     "retrieval_latency_ms": 38.2,
     "generation_latency_ms": 812.4,
-    "total_latency_ms": 861.0
+    "total_latency_ms": 861.0,
+    "matched_content_types": []
   }
 }
 ```
 
 If evidence is insufficient, `answer` is a fixed abstention string and `sources` is `[]`
 (see [docs/architecture.md](architecture.md) §9 / Phase 10 grounding rules).
+
+**Phase 5 — multimodal routing**: `retrieval.matched_content_types` shows which of
+`text`/`table`/`image` the question's wording pointed retrieval at — `[]` means an
+unrestricted search across all types (the "hybrid" mode). A question like "compare the
+two tables" produces `["table"]` and every source's `content_type` will be `"table"`;
+a question with no such signal (most questions) produces `[]` and sources can be any
+type, ranked purely by relevance. See
+[ADR 0005](decisions/0005-phase5-multimodal-retrieval.md).
 
 ## GET /jobs/{job_id}
 

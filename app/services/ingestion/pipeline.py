@@ -192,6 +192,7 @@ def run_ingestion(
                         "text": chunk.text,
                         "page": chunk.page,
                         "section": chunk.section,
+                        "content_type": chunk.content_type,
                     },
                 )
             )

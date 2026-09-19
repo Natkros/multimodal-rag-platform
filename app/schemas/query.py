@@ -16,6 +16,7 @@ class SourceRef(BaseModel):
     page: int | None = None
     chunk_id: str
     relevance_score: float
+    content_type: str = "text"  # text | table | image — see Phase 5
 
 
 class RetrievalStats(BaseModel):
@@ -25,6 +26,10 @@ class RetrievalStats(BaseModel):
     retrieval_latency_ms: float
     generation_latency_ms: float
     total_latency_ms: float
+    # Content type(s) the query's wording pointed retrieval at — [] means an
+    # unrestricted ("hybrid") search across text/table/image. See
+    # app/services/retrieval/query_classifier.py.
+    matched_content_types: list[str] = []
 
 
 class QueryResponse(BaseModel):
