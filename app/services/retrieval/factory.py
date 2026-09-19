@@ -46,14 +46,22 @@ def get_sparse_index(settings: Settings) -> BM25Index:
 
 
 def get_retriever(settings: Settings, embedder, vector_store: VectorStore):
-    """Returns a DenseRetriever or HybridRetriever per RETRIEVAL_MODE. Both expose the
-    same retrieve()/retrieve_with_classification() shape — see
-    app/services/retrieval/retriever.py."""
-    from app.services.retrieval.retriever import DenseRetriever, HybridRetriever
+    """Returns a DenseRetriever or HybridRetriever per RETRIEVAL_MODE, wrapped in a
+    CachingRetriever when CACHE_ENABLED=true (Phase 17) — both expose the same
+    retrieve()/retrieve_with_classification() shape, so nothing downstream needs to
+    know caching is involved. See app/services/retrieval/retriever.py."""
+    from app.services.retrieval.retriever import CachingRetriever, DenseRetriever, HybridRetriever
 
     if settings.retrieval_mode == "dense":
-        return DenseRetriever(embedder=embedder, vector_store=vector_store)
-    if settings.retrieval_mode == "hybrid":
+        retriever = DenseRetriever(embedder=embedder, vector_store=vector_store)
+    elif settings.retrieval_mode == "hybrid":
         sparse_index = get_sparse_index(settings)
-        return HybridRetriever(embedder=embedder, vector_store=vector_store, sparse_index=sparse_index, settings=settings)
-    raise ValueError(f"Unknown retrieval_mode: {settings.retrieval_mode!r}")
+        retriever = HybridRetriever(
+            embedder=embedder, vector_store=vector_store, sparse_index=sparse_index, settings=settings
+        )
+    else:
+        raise ValueError(f"Unknown retrieval_mode: {settings.retrieval_mode!r}")
+
+    if settings.cache_enabled:
+        return CachingRetriever(retriever, settings)
+    return retriever

@@ -12,7 +12,10 @@ wrapper over it for callers that don't need the classification breakdown.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+import hashlib
+import json
+from dataclasses import asdict, dataclass
+from typing import Protocol
 
 from app.core.config import Settings
 from app.services.embeddings.base import Embedder
@@ -100,6 +103,72 @@ class DenseRetriever:
             chunks=[_to_retrieved_chunk(r) for r in results],
             matched_content_types=matched_types,
         )
+
+
+class Retriever(Protocol):
+    def retrieve(
+        self, query: str, top_k: int, document_ids: list[str] | None = None
+    ) -> list[RetrievedChunk]: ...
+
+    def retrieve_with_classification(
+        self, query: str, top_k: int, document_ids: list[str] | None = None
+    ) -> RetrievalResult: ...
+
+
+class CachingRetriever:
+    """Phase 17: wraps any Retriever with a Redis cache keyed on everything that
+    affects the result (query text, top_k, document_ids, retrieval mode, embedding
+    model) — same decorator pattern as this project's other opt-in wrappers
+    (nothing about the wrapped retriever changes). Bounded staleness, not perfect
+    invalidation: a cache hit can return results that don't yet reflect a document
+    ingested/deleted moments ago, for up to CACHE_TTL_SECONDS. Disclosed explicitly
+    in docs/decisions/0017-phase17-caching.md rather than solved with a global
+    index-version bump on every mutation, which this project's scale doesn't
+    justify the added coupling for."""
+
+    def __init__(self, inner: Retriever, settings: Settings):
+        self.inner = inner
+        self.settings = settings
+
+    def _cache_key(self, query: str, top_k: int, document_ids: list[str] | None) -> str:
+        payload = {
+            "query": query,
+            "top_k": top_k,
+            "document_ids": sorted(document_ids) if document_ids else [],
+            "retrieval_mode": self.settings.retrieval_mode,
+            "embedding_model": self.settings.embedding_model,
+        }
+        digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
+        return f"retrieval:{digest}"
+
+    def retrieve(
+        self, query: str, top_k: int, document_ids: list[str] | None = None
+    ) -> list[RetrievedChunk]:
+        return self.retrieve_with_classification(query, top_k, document_ids).chunks
+
+    def retrieve_with_classification(
+        self, query: str, top_k: int, document_ids: list[str] | None = None
+    ) -> RetrievalResult:
+        from app.services.caching.cache import cache_get, cache_set
+
+        key = self._cache_key(query, top_k, document_ids)
+        cached = cache_get(self.settings, key)
+        if cached is not None:
+            data = json.loads(cached)
+            return RetrievalResult(
+                chunks=[RetrievedChunk(**c) for c in data["chunks"]],
+                matched_content_types=data["matched_content_types"],
+            )
+
+        result = self.inner.retrieve_with_classification(query, top_k, document_ids)
+        serialized = json.dumps(
+            {
+                "chunks": [asdict(c) for c in result.chunks],
+                "matched_content_types": result.matched_content_types,
+            }
+        )
+        cache_set(self.settings, key, serialized)
+        return result
 
 
 class HybridRetriever:

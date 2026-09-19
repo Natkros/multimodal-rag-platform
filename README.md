@@ -293,6 +293,17 @@ No load-test numbers exist yet (Phase 20/25). Per-request latency breakdown
 (`retrieval_latency_ms`, `generation_latency_ms`, `total_latency_ms`) is already
 returned by `POST /query` — see [docs/api.md](docs/api.md).
 
+**Phase 17 — retrieval caching** (opt-in, `CACHE_ENABLED=true`, off by default): a
+Redis cache wraps retrieval (embedding + vector/BM25 search), keyed on
+query+top_k+document_ids+retrieval_mode+embedding_model. A repeated identical query
+skips embedding and search entirely on a cache hit —
+`tests/integration/test_retrieval_caching.py` proves this against a real Redis
+(faster, and byte-identical results to a miss), rather than just asserting it works.
+Trades a bounded staleness window (`CACHE_TTL_SECONDS`, default 1 hour) for not
+needing to track a cache-invalidation hook on every document mutation — see
+[ADR 0017](docs/decisions/0017-phase17-caching.md) for why that tradeoff, not a
+global index-version bump, was the right call at this project's scale.
+
 ## 10. Failure Handling
 
 Handled and tested today: corrupted/unparseable PDF/DOCX/image, empty file,
@@ -469,7 +480,7 @@ docker/, Dockerfile, docker-compose.yml
 | 14 — Failure testing | ✅ done — corrupted files, path traversal (found + fixed), extreme/malicious input, prompt injection (tested + honestly disclosed limits) |
 | 15 — Backend refactor | ✅ done — audited the layering, extracted the one real violation found (`/query`'s orchestration into `app/services/query_service.py`) |
 | 16 — Async job queue | ✅ done — opt-in Redis/RQ queue (`JOB_QUEUE_BACKEND=rq`), `background_tasks` stays the default |
-| 17 — Caching | ⏳ |
+| 17 — Caching | ✅ done — opt-in Redis retrieval cache (`CACHE_ENABLED=true`), bounded-staleness tradeoff disclosed in ADR 0017 |
 | 18 — Security | ⏳ |
 | 19 — Observability | partial (latency stats), full metrics/logging ⏳ |
 | 20 — Performance engineering | ⏳ |
