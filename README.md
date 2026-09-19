@@ -25,7 +25,7 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
 ```
 `*` reranking ships in Phase 7 (opt-in, off by default — see §8b).
 
-## 3. Features (current — Phase 0–8)
+## 3. Features (current — Phase 0–9)
 
 - Upload PDF / TXT / Markdown / DOCX / HTML / images; idempotent via content-hash
   dedup (`409` on repeat upload)
@@ -79,6 +79,12 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
   detection is deterministic (no LLM call); rewriting/decomposition/expansion are
   LLM calls that fail soft to a no-op when unconfigured — see
   [ADR 0008](docs/decisions/0008-phase8-query-intelligence.md)
+- **Context engineering** (opt-in beyond Phase 1's dedupe+budget packing): a
+  relevance floor drops weak candidates, a per-document diversity cap stops one
+  source from crowding out others, deterministic truncation ("compression") caps
+  any single oversized chunk instead of letting it eat the whole token budget —
+  `retrieval.source_distribution` is always reported (see
+  [ADR 0009](docs/decisions/0009-phase9-context-engineering.md))
 - Configurable local embedding model (`sentence-transformers`, no API key required)
 - Vector store behind an abstraction — `local` (numpy, zero-setup) or `pinecone`
 - Dense (default) or hybrid retrieval → grounded generation (Anthropic Claude) →
@@ -342,7 +348,7 @@ docker compose up --build
 pytest tests/ -v
 ```
 
-221 tests, all passing. No external services or API keys are required — the vector
+234 tests, all passing. No external services or API keys are required — the vector
 store, DB, and embedding model all run locally by default (see
 [ADR 0001](docs/decisions/0001-phase1-stack-choices.md)). Generation-path and
 vision-caption tests mock the LLM client. OCR-dependent tests run for real against
@@ -375,7 +381,7 @@ docker/, Dockerfile, docker-compose.yml
 | 6 — Hybrid search (dense + BM25 fusion) | ✅ done |
 | 7 — Reranking (implemented, measured off by default — see §8b) | ✅ done |
 | 8 — Query intelligence (rewriting, decomposition, classification) | ✅ done |
-| 9 — Context engineering | ⏳ next |
+| 9 — Context engineering (relevance floor, diversity cap, compression) | ✅ done |
 | 10 — Grounded generation | partially in Phase 1 (abstention + citations), formalized later |
 | 11 — Citation engine (validation) | ⏳ |
 | 12 — Conversational RAG | ⏳ |

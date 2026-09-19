@@ -32,6 +32,11 @@ class RetrievalStats(BaseModel):
     # app/services/retrieval/query_classifier.py.
     matched_content_types: list[str] = []
     reranked: bool = False  # RERANKER_ENABLED at request time — see Phase 7 / ADR 0007
+    # Phase 9 context engineering — see app/services/generation/context_builder.py
+    source_distribution: dict[str, int] = {}  # document_name -> chunks selected from it
+    dropped_low_relevance: int = 0
+    dropped_diversity_cap: int = 0
+    truncated_chunks: int = 0
 
 
 class RetrievalTraceEntry(BaseModel):

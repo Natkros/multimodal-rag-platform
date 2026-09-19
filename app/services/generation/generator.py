@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from app.core.config import Settings
 from app.services.generation.context_builder import build_context
@@ -23,6 +23,10 @@ class GenerationResult:
     retrieved_count: int
     selected_count: int
     generation_latency_ms: float
+    source_distribution: dict[str, int] = field(default_factory=dict)
+    dropped_low_relevance: int = 0
+    dropped_diversity_cap: int = 0
+    truncated_chunks: int = 0
 
 
 def generate_answer(
@@ -42,7 +46,14 @@ def generate_answer(
             generation_latency_ms=0.0,
         )
 
-    context = build_context(retrieved)
+    context = build_context(
+        retrieved,
+        max_tokens=settings.context_max_tokens,
+        relevance_floor_ratio=settings.context_relevance_floor_ratio,
+        max_chunks_per_document=settings.context_max_chunks_per_document,
+        compression_enabled=settings.context_compression_enabled,
+        max_chunk_tokens=settings.context_max_chunk_tokens,
+    )
     user_prompt = build_user_prompt(question, context.chunks)
 
     start = time.perf_counter()
@@ -63,4 +74,8 @@ def generate_answer(
         retrieved_count=len(retrieved),
         selected_count=len(context.chunks),
         generation_latency_ms=elapsed_ms,
+        source_distribution=context.source_distribution,
+        dropped_low_relevance=context.dropped_low_relevance,
+        dropped_diversity_cap=context.dropped_diversity_cap,
+        truncated_chunks=context.truncated_chunks,
     )

@@ -283,3 +283,39 @@ def test_query_auto_scopes_to_mentioned_document(client, monkeypatch, test_setti
     assert body["query_intelligence"]["matched_document_id"] is not None
     for source in body["sources"]:
         assert source["document_id"] == body["query_intelligence"]["matched_document_id"]
+
+
+def test_query_reports_source_distribution(client, monkeypatch):
+    import app.api.routes.query as query_module
+
+    monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
+    _upload(client, "facts.txt", b"Acme Corporation was founded in 2010 in Austin, Texas. " * 5)
+
+    resp = client.post("/query", json={"question": "When was Acme founded?", "top_k": 5})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["retrieval"]["source_distribution"]
+    assert sum(body["retrieval"]["source_distribution"].values()) == len(body["sources"])
+    assert body["retrieval"]["dropped_low_relevance"] == 0
+    assert body["retrieval"]["dropped_diversity_cap"] == 0
+
+
+def test_query_diversity_cap_limits_sources_per_document(client, monkeypatch, test_settings):
+    import app.api.routes.query as query_module
+
+    monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
+    test_settings.context_max_chunks_per_document = 1
+
+    _upload(
+        client,
+        "facts.txt",
+        b"Acme was founded in 2010 in Austin. " * 3
+        + b"Acme's headquarters moved to Dallas in 2015. " * 3
+        + b"Acme went public in 2020 on the Nasdaq exchange. " * 3,
+    )
+
+    resp = client.post("/query", json={"question": "Tell me about Acme's history.", "top_k": 5})
+    assert resp.status_code == 200
+    body = resp.json()
+    for count in body["retrieval"]["source_distribution"].values():
+        assert count <= 1

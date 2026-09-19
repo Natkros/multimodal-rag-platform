@@ -149,11 +149,22 @@ status to `REINDEX_REQUIRED`. Does not reindex anything itself — pair with
     "generation_latency_ms": 812.4,
     "total_latency_ms": 861.0,
     "matched_content_types": [],
-    "reranked": false
+    "reranked": false,
+    "source_distribution": { "acme_employee_handbook.md": 3 },
+    "dropped_low_relevance": 0,
+    "dropped_diversity_cap": 0,
+    "truncated_chunks": 0
   },
   "query_intelligence": null
 }
 ```
+
+**Phase 9 — context engineering**: `source_distribution` (always present) shows how
+many selected chunks came from each document. `dropped_low_relevance` /
+`dropped_diversity_cap` / `truncated_chunks` are 0 unless
+`CONTEXT_RELEVANCE_FLOOR_RATIO`, `CONTEXT_MAX_CHUNKS_PER_DOCUMENT`, or
+`CONTEXT_COMPRESSION_ENABLED` are explicitly configured — see
+[ADR 0009](decisions/0009-phase9-context-engineering.md).
 
 **Phase 8 — query intelligence** (`QUERY_INTELLIGENCE_ENABLED=true`, off by default):
 when enabled, `query_intelligence` is populated instead of `null`:

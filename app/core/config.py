@@ -90,6 +90,15 @@ class Settings(BaseSettings):
     llm_temperature: float = Field(default=0.0)
     grounding_confidence_threshold: float = Field(default=0.35)
 
+    # --- Context engineering (Phase 9) ---
+    context_max_tokens: int = Field(default=3000)
+    # 0 = disabled (keep everything retrieval already ranked highly enough to return —
+    # Phase 1-8 behavior). >0 drops chunks scoring below that fraction of the top result.
+    context_relevance_floor_ratio: float = Field(default=0.0)
+    context_max_chunks_per_document: int | None = Field(default=None)  # None = no diversity cap
+    context_compression_enabled: bool = Field(default=False)
+    context_max_chunk_tokens: int = Field(default=300)  # per-chunk cap when compression is on
+
     # --- API security (Phase 18 groundwork) ---
     api_key: str | None = Field(default=None)  # if set, required via X-API-Key header
     cors_allow_origins: tuple[str, ...] = Field(default=("http://localhost:3000",))

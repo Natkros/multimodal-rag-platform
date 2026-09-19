@@ -147,6 +147,10 @@ def query(
             total_latency_ms=round(total_latency_ms, 2),
             matched_content_types=sorted(all_matched_content_types),
             reranked=settings.reranker_enabled,
+            source_distribution=result.source_distribution,
+            dropped_low_relevance=result.dropped_low_relevance,
+            dropped_diversity_cap=result.dropped_diversity_cap,
+            truncated_chunks=result.truncated_chunks,
         ),
         query_intelligence=(
             QueryIntelligenceStats(
