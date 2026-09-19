@@ -34,8 +34,37 @@ class RetrievalStats(BaseModel):
     reranked: bool = False  # RERANKER_ENABLED at request time — see Phase 7 / ADR 0007
 
 
+class RetrievalTraceEntry(BaseModel):
+    """One retrieval operation — Phase 8 decomposition/expansion can trigger several
+    per request, each tracked separately per the project brief."""
+
+    query: str
+    matched_content_types: list[str] = []
+    chunk_count: int
+
+
+class QueryIntelligenceStats(BaseModel):
+    """Present only when QUERY_INTELLIGENCE_ENABLED=true — see
+    app/services/query_intelligence/pipeline.py and ADR 0008."""
+
+    original_question: str
+    effective_question: str
+    rewritten: bool
+    is_short: bool
+    is_ambiguous: bool
+    is_multi_part: bool
+    is_follow_up: bool
+    mentioned_years: list[str] = []
+    mentioned_quarters: list[str] = []
+    sub_questions: list[str] = []
+    expansion_variants: list[str] = []
+    matched_document_id: str | None = None
+    retrieval_trace: list[RetrievalTraceEntry] = []
+
+
 class QueryResponse(BaseModel):
     answer: str
     confidence: str  # "high" | "low" | "abstained"
     sources: list[SourceRef]
     retrieval: RetrievalStats
+    query_intelligence: QueryIntelligenceStats | None = None

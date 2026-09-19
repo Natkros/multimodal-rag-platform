@@ -163,3 +163,123 @@ def test_query_reranking_corrects_misleading_top_result(client, monkeypatch, tes
     body = resp.json()
     assert len(body["sources"]) == 1
     assert body["sources"][0]["document_name"] == "answer.txt"
+
+
+class SmartFakeLLMClient:
+    """Dispatches on which system prompt is used, so one instance can stand in for
+    generation *and* query-intelligence (rewrite/decompose) calls in the same request."""
+
+    def __init__(self, generation_answer="The answer is here [1].", rewrite=None, decompose=None):
+        self.generation_answer = generation_answer
+        self.rewrite = rewrite
+        self.decompose = decompose
+        self.calls = []
+
+    def complete(self, system, user, max_tokens, temperature):
+        self.calls.append((system, user))
+        system_lower = system.lower()
+        if "rewrite" in system_lower:
+            return self.rewrite or ""
+        if "break a multi-part" in system_lower:
+            return self.decompose or ""
+        if "alternative phrasings" in system_lower:
+            return ""
+        return self.generation_answer
+
+
+def _patch_llm_everywhere(monkeypatch, fake_client):
+    import app.api.routes.query as query_module
+    import app.services.query_intelligence.pipeline as pipeline_module
+
+    monkeypatch.setattr(query_module, "get_llm_client", lambda settings: fake_client)
+    monkeypatch.setattr(pipeline_module, "get_llm_client", lambda settings: fake_client)
+
+
+def test_query_intelligence_absent_by_default(client, monkeypatch):
+    import app.api.routes.query as query_module
+
+    monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
+    _upload(client, "facts.txt", b"Acme Corporation was founded in 2010 in Austin, Texas. " * 3)
+
+    resp = client.post("/query", json={"question": "When was Acme founded?"})
+    assert resp.status_code == 200
+    assert resp.json()["query_intelligence"] is None
+
+
+def test_query_follow_up_resolved_across_two_turns(client, monkeypatch, test_settings):
+    test_settings.query_intelligence_enabled = True
+    fake_client = SmartFakeLLMClient(
+        generation_answer="Q2 2025 revenue was $42.3 million [1].",
+        rewrite="What was Acme's Q2 2025 revenue?",
+    )
+    _patch_llm_everywhere(monkeypatch, fake_client)
+
+    _upload(
+        client,
+        "revenue.txt",
+        b"Acme's Q1 2025 revenue was $38 million. Acme's Q2 2025 revenue was $42.3 million. " * 3,
+    )
+
+    first = client.post(
+        "/query", json={"question": "What was Acme's Q1 2025 revenue?", "conversation_id": "conv-1"}
+    )
+    assert first.status_code == 200
+
+    second = client.post("/query", json={"question": "What about Q2?", "conversation_id": "conv-1"})
+    assert second.status_code == 200
+    body = second.json()
+    assert body["query_intelligence"]["is_follow_up"] is True
+    assert body["query_intelligence"]["rewritten"] is True
+    assert body["query_intelligence"]["effective_question"] == "What was Acme's Q2 2025 revenue?"
+    assert body["query_intelligence"]["retrieval_trace"][0]["query"] == "What was Acme's Q2 2025 revenue?"
+
+
+def test_query_decomposition_tracks_each_retrieval_operation(client, monkeypatch, test_settings):
+    test_settings.query_intelligence_enabled = True
+    fake_client = SmartFakeLLMClient(
+        decompose=(
+            "What was Acme's 2023 revenue?\n"
+            "What was Acme's 2024 revenue?\n"
+            "What drove Acme's revenue growth?"
+        )
+    )
+    _patch_llm_everywhere(monkeypatch, fake_client)
+
+    _upload(
+        client,
+        "revenue.txt",
+        b"Acme's 2023 revenue was $100 million. Acme's 2024 revenue was $130 million, "
+        b"driven by Enterprise tier growth. " * 3,
+    )
+
+    resp = client.post(
+        "/query",
+        json={"question": "Compare revenue growth between 2023 and 2024 and explain the primary drivers."},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["query_intelligence"]["sub_questions"]) == 3
+    assert len(body["query_intelligence"]["retrieval_trace"]) == 3
+    queries = [entry["query"] for entry in body["query_intelligence"]["retrieval_trace"]]
+    assert "What was Acme's 2023 revenue?" in queries
+    assert "What was Acme's 2024 revenue?" in queries
+
+
+def test_query_auto_scopes_to_mentioned_document(client, monkeypatch, test_settings, sample_docs_dir):
+    test_settings.query_intelligence_enabled = True
+    fake_client = SmartFakeLLMClient()
+    _patch_llm_everywhere(monkeypatch, fake_client)
+
+    path = sample_docs_dir / "acme_vendor_security_policy.docx"
+    with path.open("rb") as f:
+        client.post("/documents/upload", files={"file": (path.name, f, "application/octet-stream")})
+    _upload(client, "handbook.txt", b"Acme's remote work policy allows three days per week. " * 3)
+
+    resp = client.post(
+        "/query", json={"question": "In the vendor security policy, what is the Tier 1 requirement?"}
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["query_intelligence"]["matched_document_id"] is not None
+    for source in body["sources"]:
+        assert source["document_id"] == body["query_intelligence"]["matched_document_id"]

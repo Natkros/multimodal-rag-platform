@@ -150,9 +150,41 @@ status to `REINDEX_REQUIRED`. Does not reindex anything itself — pair with
     "total_latency_ms": 861.0,
     "matched_content_types": [],
     "reranked": false
+  },
+  "query_intelligence": null
+}
+```
+
+**Phase 8 — query intelligence** (`QUERY_INTELLIGENCE_ENABLED=true`, off by default):
+when enabled, `query_intelligence` is populated instead of `null`:
+```json
+{
+  "query_intelligence": {
+    "original_question": "What about Q2?",
+    "effective_question": "What was Acme's Q2 2025 revenue?",
+    "rewritten": true,
+    "is_short": true,
+    "is_ambiguous": false,
+    "is_multi_part": false,
+    "is_follow_up": true,
+    "mentioned_years": [],
+    "mentioned_quarters": [],
+    "sub_questions": [],
+    "expansion_variants": [],
+    "matched_document_id": null,
+    "retrieval_trace": [
+      { "query": "What was Acme's Q2 2025 revenue?", "matched_content_types": [], "chunk_count": 5 }
+    ]
   }
 }
 ```
+A follow-up question (`conversation_id` set, history exists) gets rewritten into a
+self-contained form before retrieval; a multi-part/comparison question gets
+decomposed into `sub_questions`, each retrieved separately and tracked in
+`retrieval_trace`; a question naming a specific indexed document gets auto-scoped to
+it (`matched_document_id`) unless `document_ids` was passed explicitly. Every
+LLM-backed step degrades to a no-op if the LLM isn't configured — see
+[ADR 0008](decisions/0008-phase8-query-intelligence.md).
 
 If evidence is insufficient, `answer` is a fixed abstention string and `sources` is `[]`
 (see [docs/architecture.md](architecture.md) §9 / Phase 10 grounding rules).

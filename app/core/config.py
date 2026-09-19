@@ -74,6 +74,14 @@ class Settings(BaseSettings):
     reranker_model: str = Field(default="cross-encoder/ms-marco-MiniLM-L-6-v2")
     rerank_candidate_pool: int = Field(default=30)  # retrieve this many, rerank down to top_k
 
+    # --- Query intelligence (Phase 8) ---
+    query_intelligence_enabled: bool = Field(default=False)  # master opt-in — see ADR 0008
+    query_rewrite_enabled: bool = Field(default=True)  # sub-toggle, only active if the master switch is on
+    query_decomposition_enabled: bool = Field(default=True)
+    query_expansion_enabled: bool = Field(default=False)  # off by default — unmeasured effect on precision
+    query_short_word_threshold: int = Field(default=4)
+    conversation_history_max_turns: int = Field(default=5)
+
     # --- LLM / generation ---
     llm_provider: str = Field(default="anthropic")
     llm_model: str = Field(default="claude-sonnet-5")

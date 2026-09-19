@@ -25,7 +25,7 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
 ```
 `*` reranking ships in Phase 7 (opt-in, off by default — see §8b).
 
-## 3. Features (current — Phase 0–7)
+## 3. Features (current — Phase 0–8)
 
 - Upload PDF / TXT / Markdown / DOCX / HTML / images; idempotent via content-hash
   dedup (`409` on repeat upload)
@@ -70,6 +70,15 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
   corpus it made ranking *very slightly worse* (MRR 0.875→0.858) at ~42x latency, a
   real negative result reported as such (see §8 and
   [ADR 0007](docs/decisions/0007-phase7-reranking.md))
+- **Query intelligence** (opt-in, `QUERY_INTELLIGENCE_ENABLED=true`): follow-up
+  questions ("what about Q2?") get rewritten into self-contained form using
+  in-memory conversation history; multi-part/comparison questions get decomposed
+  into sub-questions, each retrieved and tracked separately
+  (`query_intelligence.retrieval_trace`); a question naming a specific indexed
+  document auto-scopes retrieval to it. Ambiguous/short/follow-up/multi-part
+  detection is deterministic (no LLM call); rewriting/decomposition/expansion are
+  LLM calls that fail soft to a no-op when unconfigured — see
+  [ADR 0008](docs/decisions/0008-phase8-query-intelligence.md)
 - Configurable local embedding model (`sentence-transformers`, no API key required)
 - Vector store behind an abstraction — `local` (numpy, zero-setup) or `pinecone`
 - Dense (default) or hybrid retrieval → grounded generation (Anthropic Claude) →
@@ -293,7 +302,13 @@ curl -X POST http://localhost:8000/query -H "Content-Type: application/json" \
 - Reranking (`RERANKER_ENABLED`, opt-in, default off) is implemented and tested, but
   measured to *not* help on this project's small seed set (§8b) — left off by default
   because the measurement says so, not because it's unfinished
-- No conversation memory — every `/query` call is stateless (Phase 12)
+- Conversation history (Phase 8) is in-memory and process-local — lost on restart, no
+  cross-process sharing; Phase 12 replaces this with real persistence (this was a
+  deliberate scope decision, not an oversight — see ADR 0008)
+- Query rewriting/decomposition/expansion require `ANTHROPIC_API_KEY` to do anything;
+  without one they degrade to a no-op (tested, not a silent failure) — no fabricated
+  before/after quality number exists for this phase because producing one honestly
+  needs a real LLM call this dev environment doesn't have configured (ADR 0008)
 - No caching, rate limiting, or auth (Phase 17/18)
 - Ingestion runs in-process via `BackgroundTasks`, not a real job queue (Phase 16)
 - Evaluation dataset is a small seed set, not yet the 100–300 target (Phase 13)
@@ -327,7 +342,7 @@ docker compose up --build
 pytest tests/ -v
 ```
 
-166 tests, all passing. No external services or API keys are required — the vector
+221 tests, all passing. No external services or API keys are required — the vector
 store, DB, and embedding model all run locally by default (see
 [ADR 0001](docs/decisions/0001-phase1-stack-choices.md)). Generation-path and
 vision-caption tests mock the LLM client. OCR-dependent tests run for real against
@@ -359,8 +374,8 @@ docker/, Dockerfile, docker-compose.yml
 | 5 — Multimodal retrieval (route queries to text/table/image specifically) | ✅ done |
 | 6 — Hybrid search (dense + BM25 fusion) | ✅ done |
 | 7 — Reranking (implemented, measured off by default — see §8b) | ✅ done |
-| 8 — Query intelligence | ⏳ next |
-| 9 — Context engineering | ⏳ |
+| 8 — Query intelligence (rewriting, decomposition, classification) | ✅ done |
+| 9 — Context engineering | ⏳ next |
 | 10 — Grounded generation | partially in Phase 1 (abstention + citations), formalized later |
 | 11 — Citation engine (validation) | ⏳ |
 | 12 — Conversational RAG | ⏳ |

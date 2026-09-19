@@ -23,12 +23,14 @@ def test_settings(monkeypatch):
 
     from app.core.config import get_settings
     from app.services.embeddings.local_embedder import get_local_embedder
+    from app.services.query_intelligence import conversation_store
     from app.services.retrieval.factory import _cached_local_store, _cached_sparse_index
 
     get_settings.cache_clear()
     get_local_embedder.cache_clear()
     _cached_local_store.cache_clear()
     _cached_sparse_index.cache_clear()
+    conversation_store.reset_all()
 
     import app.models.db as db_module
 
@@ -42,6 +44,7 @@ def test_settings(monkeypatch):
     get_local_embedder.cache_clear()
     _cached_local_store.cache_clear()
     _cached_sparse_index.cache_clear()
+    conversation_store.reset_all()
     db_module._engine = None
     db_module._SessionLocal = None
     shutil.rmtree(tmp_dir, ignore_errors=True)
