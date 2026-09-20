@@ -74,6 +74,7 @@ class BM25Index:
         self._bm25 = BM25Okapi(self._tokenized_corpus)
 
     def upsert(self, records: list[SparseRecord]) -> None:
+        """Insert or overwrite the given records, rebuild the BM25 index, and persist to disk."""
         if not records:
             return
         with self._lock:
@@ -89,6 +90,7 @@ class BM25Index:
             self._save()
 
     def query(self, query_text: str, top_k: int, filter: dict | None = None) -> list[ScoredVector]:
+        """Return the `top_k` BM25 matches for `query_text` that share at least one token with the query."""
         with self._lock:
             if self._bm25 is None or not self._ids:
                 return []
@@ -123,6 +125,7 @@ class BM25Index:
             ]
 
     def delete_by_document(self, document_id: str) -> None:
+        """Remove every record whose metadata `document_id` matches, rebuild the index, and persist."""
         with self._lock:
             keep = [i for i, doc_id in enumerate(self._ids) if self._metadata.get(doc_id, {}).get("document_id") != document_id]
             self._ids = [self._ids[i] for i in keep]
@@ -132,4 +135,5 @@ class BM25Index:
             self._save()
 
     def count(self) -> int:
+        """Return the total number of records currently indexed."""
         return len(self._ids)

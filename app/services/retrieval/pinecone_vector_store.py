@@ -30,12 +30,14 @@ class PineconeVectorStore:
         self._index = self._client.Index(index_name)
 
     def upsert(self, records: list[VectorRecord]) -> None:
+        """Insert or overwrite the given records in this store's Pinecone namespace."""
         if not records:
             return
         vectors = [(r.vector_id, r.values, r.metadata) for r in records]
         self._index.upsert(vectors=vectors, namespace=self.namespace)
 
     def query(self, vector: list[float], top_k: int, filter: dict | None = None) -> list[ScoredVector]:
+        """Return the `top_k` nearest records to `vector`, optionally restricted by `filter`."""
         response = self._index.query(
             vector=vector, top_k=top_k, filter=filter, namespace=self.namespace, include_metadata=True
         )
@@ -45,8 +47,10 @@ class PineconeVectorStore:
         ]
 
     def delete_by_document(self, document_id: str) -> None:
+        """Delete every vector whose metadata `document_id` matches."""
         self._index.delete(filter={"document_id": document_id}, namespace=self.namespace)
 
     def count(self) -> int:
+        """Return the total number of vectors stored in this Pinecone index."""
         stats = self._index.describe_index_stats()
         return int(stats.get("total_vector_count", 0))

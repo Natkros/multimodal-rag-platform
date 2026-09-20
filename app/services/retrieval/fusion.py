@@ -38,6 +38,7 @@ def _normalize(results: list[ScoredVector]) -> dict[str, float]:
 def reciprocal_rank_fusion(
     dense_results: list[ScoredVector], sparse_results: list[ScoredVector], k: int = 60
 ) -> list[ScoredVector]:
+    """Fuse dense and sparse results by rank via RRF, rescaled into (0, 1]. See module docstring."""
     scores: dict[str, float] = {}
     metadata: dict[str, dict] = {}
     n_retrievers = sum(1 for results in (dense_results, sparse_results) if results)
@@ -66,6 +67,7 @@ def weighted_fusion(
     dense_weight: float,
     sparse_weight: float,
 ) -> list[ScoredVector]:
+    """Fuse dense and sparse results by a weighted sum of their min-max-normalized scores."""
     dense_norm = _normalize(dense_results)
     sparse_norm = _normalize(sparse_results)
     metadata: dict[str, dict] = {}
@@ -92,6 +94,7 @@ def fuse(
     dense_weight: float,
     sparse_weight: float,
 ) -> list[ScoredVector]:
+    """Dispatch to `reciprocal_rank_fusion` or `weighted_fusion` per `HYBRID_FUSION_METHOD`."""
     if method == "rrf":
         return reciprocal_rank_fusion(dense_results, sparse_results, k=rrf_k)
     if method == "weighted":

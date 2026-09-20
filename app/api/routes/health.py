@@ -11,11 +11,13 @@ router = APIRouter(tags=["health"])
 
 @router.get("/health")
 def health() -> dict:
+    """Liveness check: always returns ok if the process is running and serving requests."""
     return {"status": "ok"}
 
 
 @router.get("/ready")
 def ready(response: Response, db: Session = Depends(db_dependency)) -> dict:
+    """Readiness check: verifies the database is reachable, returning 503 if not."""
     checks = {}
     try:
         db.execute(text("SELECT 1"))

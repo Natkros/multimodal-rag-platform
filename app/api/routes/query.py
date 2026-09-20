@@ -26,6 +26,7 @@ def query(
     db: Session = Depends(db_dependency),
     settings: Settings = Depends(settings_dependency),
 ):
+    """Run the full retrieve-rerank-generate pipeline and return a grounded, cited answer."""
     try:
         pipeline_result = run_query_pipeline(request, db, settings)
     except LLMNotConfiguredError as exc:

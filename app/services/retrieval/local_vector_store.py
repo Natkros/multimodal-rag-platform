@@ -46,6 +46,7 @@ class LocalVectorStore:
         )
 
     def upsert(self, records: list[VectorRecord]) -> None:
+        """Insert new records or overwrite existing ones by `vector_id`, then persist to disk."""
         if not records:
             return
         with self._lock:
@@ -64,6 +65,7 @@ class LocalVectorStore:
             self._save()
 
     def query(self, vector: list[float], top_k: int, filter: dict | None = None) -> list[ScoredVector]:
+        """Return the `top_k` records with highest cosine similarity to `vector`, optionally filtered by metadata."""
         with self._lock:
             if self._matrix is None or len(self._ids) == 0:
                 return []
@@ -95,6 +97,7 @@ class LocalVectorStore:
             return results
 
     def delete_by_document(self, document_id: str) -> None:
+        """Remove every record whose metadata `document_id` matches, then persist to disk."""
         with self._lock:
             keep = [
                 i
@@ -107,4 +110,5 @@ class LocalVectorStore:
             self._save()
 
     def count(self) -> int:
+        """Return the total number of vectors currently stored."""
         return len(self._ids)

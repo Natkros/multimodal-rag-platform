@@ -51,6 +51,7 @@ async def upload_document(
     db: Session = Depends(db_dependency),
     settings: Settings = Depends(settings_dependency),
 ):
+    """Accept an upload, persist it, and schedule ingestion, returning immediately with a job id."""
     raw_bytes = await file.read()
 
     if len(raw_bytes) == 0:
@@ -110,6 +111,7 @@ async def upload_document(
 
 @router.get("/documents", response_model=DocumentListResponse)
 def list_documents(db: Session = Depends(db_dependency)):
+    """List every indexed document."""
     repo = DocumentRepository(db)
     docs = repo.list_all()
     return DocumentListResponse(documents=[DocumentResponse.model_validate(d) for d in docs], total=len(docs))
@@ -117,6 +119,7 @@ def list_documents(db: Session = Depends(db_dependency)):
 
 @router.get("/documents/{document_id}", response_model=DocumentResponse)
 def get_document(document_id: str, db: Session = Depends(db_dependency)):
+    """Fetch metadata for a single document by id."""
     repo = DocumentRepository(db)
     doc = repo.get(document_id)
     if doc is None:
@@ -130,6 +133,7 @@ def delete_document(
     db: Session = Depends(db_dependency),
     settings: Settings = Depends(settings_dependency),
 ):
+    """Delete a document from the DB and best-effort purge its vectors/sparse-index entries."""
     repo = DocumentRepository(db)
     doc = repo.get(document_id)
     if doc is None:
@@ -157,6 +161,7 @@ def reindex_document(
     db: Session = Depends(db_dependency),
     settings: Settings = Depends(settings_dependency),
 ):
+    """Re-run ingestion for a previously uploaded document from its stored raw file."""
     repo = DocumentRepository(db)
     doc = repo.get(document_id)
     if doc is None:
@@ -208,6 +213,7 @@ def check_staleness(
 
 @router.get("/jobs/{job_id}", response_model=JobResponse)
 def get_job(job_id: str, db: Session = Depends(db_dependency)):
+    """Fetch the status of an ingestion/reindex job by id."""
     repo = DocumentRepository(db)
     job = repo.get_job(job_id)
     if job is None:

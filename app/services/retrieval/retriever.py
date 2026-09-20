@@ -73,11 +73,13 @@ class DenseRetriever:
     def retrieve(
         self, query: str, top_k: int, document_ids: list[str] | None = None
     ) -> list[RetrievedChunk]:
+        """Dense-only retrieval; a thin wrapper over `retrieve_with_classification`."""
         return self.retrieve_with_classification(query, top_k, document_ids).chunks
 
     def retrieve_with_classification(
         self, query: str, top_k: int, document_ids: list[str] | None = None
     ) -> RetrievalResult:
+        """Classify the query's content type(s), then run dense retrieval routed to just those types."""
         query_vector = self.embedder.embed_query(query)
         matched_types = sorted(classify_query_content_types(query))
 
@@ -108,11 +110,15 @@ class DenseRetriever:
 class Retriever(Protocol):
     def retrieve(
         self, query: str, top_k: int, document_ids: list[str] | None = None
-    ) -> list[RetrievedChunk]: ...
+    ) -> list[RetrievedChunk]:
+        """Return the top-k retrieved chunks for `query`."""
+        ...
 
     def retrieve_with_classification(
         self, query: str, top_k: int, document_ids: list[str] | None = None
-    ) -> RetrievalResult: ...
+    ) -> RetrievalResult:
+        """Return retrieved chunks plus the query's matched content-type classification."""
+        ...
 
 
 class CachingRetriever:
@@ -144,11 +150,13 @@ class CachingRetriever:
     def retrieve(
         self, query: str, top_k: int, document_ids: list[str] | None = None
     ) -> list[RetrievedChunk]:
+        """Cached dense-only retrieval; a thin wrapper over `retrieve_with_classification`."""
         return self.retrieve_with_classification(query, top_k, document_ids).chunks
 
     def retrieve_with_classification(
         self, query: str, top_k: int, document_ids: list[str] | None = None
     ) -> RetrievalResult:
+        """Return a cached result if present, else delegate to `inner` and cache the response."""
         from app.services.caching.cache import cache_get, cache_set
         from app.services.observability.metrics import retrieval_cache_total
 
@@ -190,11 +198,13 @@ class HybridRetriever:
     def retrieve(
         self, query: str, top_k: int, document_ids: list[str] | None = None
     ) -> list[RetrievedChunk]:
+        """Hybrid (dense + BM25) retrieval; a thin wrapper over `retrieve_with_classification`."""
         return self.retrieve_with_classification(query, top_k, document_ids).chunks
 
     def retrieve_with_classification(
         self, query: str, top_k: int, document_ids: list[str] | None = None
     ) -> RetrievalResult:
+        """Classify the query's content type(s), then fuse dense+BM25 results per matched type."""
         query_vector = self.embedder.embed_query(query)
         matched_types = sorted(classify_query_content_types(query))
         types_to_search: list[str | None] = matched_types or [None]  # None = unfiltered

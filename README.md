@@ -120,7 +120,7 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
 - Deterministic retrieval-metrics harness (`scripts/run_eval.py`) with a
   103-question seed dataset; every report generated since Phase 29 records the
   exact git commit that produced it (`scripts/list_experiments.py`)
-- Full test suite (unit / integration / API / adversarial) — 331 tests, 95%+
+- Full test suite (unit / integration / API / adversarial) — 341 tests, 96%+
   coverage — see [Testing](#testing)
 - `docker compose up` runs the full stack locally; a Render Blueprint
   (`render.yaml`, Phase 24) exists for cloud deployment, written but not yet
@@ -581,8 +581,8 @@ pytest tests/ -v
 pytest tests/ --cov=app --cov-report=term-missing
 ```
 
-331 tests (2 skip without a reachable Redis — Phase 16/17's real-queue/real-cache
-integration tests, which run for real in CI), 95%+ line coverage. No external
+341 tests (2 skip without a reachable Redis — Phase 16/17's real-queue/real-cache
+integration tests, which run for real in CI), 96%+ line coverage. No external
 services or API keys are required for the default run — the vector store, DB, and
 embedding model all run locally by default (see
 [ADR 0001](docs/decisions/0001-phase1-stack-choices.md)). Generation-path and
@@ -651,5 +651,5 @@ Dockerfile, docker-compose.yml, render.yaml, .dockerignore
 | Security hardening pass | ✅ done — global exception handler, HSTS, DOCX zip-bomb guard, pinned dependency locks ([ADR 0031](docs/decisions/0031-production-hardening-security.md)) |
 | Evaluation dataset expansion (toward 100–300 Qs) | ✅ done — 57 → 103 questions, 5 new sample documents genuinely grew the corpus rather than padding with near-duplicates ([ADR 0032](docs/decisions/0032-eval-dataset-expansion.md)) |
 | Real Docker verification | ⏳ attempted again, same structural result as ADR 0021 — this sandbox's Docker Desktop backend exits on its own ~3.5 minutes after launch (no virtualization support), confirmed not a timing issue |
-| General code/doc polish | ⏳ in progress |
+| General code/doc polish | ✅ done — stale test/coverage counts corrected (331→341 tests, 95%+→96%+), missing docstrings added to `app/services/retrieval/*` and API route handlers; audited for TODOs, dead code, broken links (none found) |
 | Live cloud deployment (Render) | ⏳ in progress, guided — requires the account owner's own login/payment action, which this assistant does not perform |
