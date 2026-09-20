@@ -271,6 +271,26 @@ now with a dataset large enough to actually show it. Full report:
 [ADR 0013](docs/decisions/0013-phase13-evaluation-expansion.md) for how the dataset
 was built and why 57 (not yet 100-300) is where it honestly landed.
 
+### 8d. Phase 26 — MMR diversification (measured negative, same as Phase 7)
+
+`scripts/compare_mmr.py` holds `RETRIEVAL_MODE=dense` fixed and only varies
+`MMR_ENABLED` (λ=0.5), over the full 57-question set:
+
+| Config | Recall@5 | MRR | nDCG@5 | Avg intra-result similarity | Latency p50 |
+|---|---:|---:|---:|---:|---:|
+| dense, no MMR | 0.900 | 0.751 | 0.789 | 0.3331 | 132.5 ms |
+| dense + MMR | 0.660 | 0.654 | 0.645 | **0.1192** | 875.8 ms |
+
+MMR does exactly what it's built for — a real 64% drop in intra-result redundancy
+— but costs real ranking quality here (Recall@5 0.900→0.660, MRR 0.751→0.654) at
+~6.6x latency. Most likely cause: this eval set is predominantly single-answer
+factual QA with one genuinely correct chunk per question, not the
+multiple-good-answers case MMR is designed for. `MMR_ENABLED=false` stays the
+default — a real, honest negative result, not a reason to have skipped building
+and measuring it. See [ADR 0026](docs/decisions/0026-phase26-advanced-rag.md) for
+why MMR was chosen over HyDE/Self-RAG/CRAG (all need a configured LLM this dev
+environment doesn't have, the same constraint as ADR 0008/0013).
+
 **Phase 3 — chunking strategy comparison** (`fixed` vs `recursive` vs `semantic`,
 measured with content-based relevance since chunk IDs aren't comparable across
 strategies — see [docs/evaluation.md](docs/evaluation.md)):
@@ -582,4 +602,5 @@ docker/, Dockerfile, docker-compose.yml
 | 23 — CI/CD | ✅ done — coverage gate (`--cov-fail-under=90`) + artifact, compose validation; found mypy has been silently failing outright (ADR 0023); deploy job is Phase 24, once real |
 | 24 — Cloud deployment | ⏳ partial — `render.yaml` Blueprint written and reasoned through (ADR 0024), never deployed (no cloud credentials in this session) |
 | 25 — Load testing | ✅ done — real finding: this config collapses between 3-5 concurrent clients (ADR 0025), not a clean bill of health |
-| 26–30 — Advanced/agentic RAG, dashboard, experiment tracking, final demo | ⏳ |
+| 26 — Advanced RAG (MMR) | ✅ done — measured negative result on this eval set (ADR 0026), off by default |
+| 27–30 — Agentic RAG, dashboard, experiment tracking, final demo | ⏳ |

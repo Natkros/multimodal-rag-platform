@@ -25,6 +25,7 @@ from app.services.generation.llm_client import get_llm_client
 from app.services.query_intelligence.pipeline import QueryIntelligenceResult, process_query
 from app.services.reranking.reranker import get_reranker
 from app.services.retrieval.factory import get_retriever, get_vector_store
+from app.services.retrieval.mmr import select_with_mmr
 from app.services.retrieval.retriever import RetrievedChunk
 
 
@@ -122,14 +123,24 @@ def run_query_pipeline(request: QueryRequest, db: Session, settings: Settings) -
     merged_candidates = _merge_keep_best(chunk_lists)[:pool_k]
     retrieval_latency_ms = (time.perf_counter() - retrieval_start) * 1000
 
+    # When MMR (Phase 26) will also run, rerank the *whole* candidate pool rather
+    # than trimming straight to top_k — MMR needs a real pool bigger than top_k to
+    # choose diversity from, otherwise there's nothing left for it to select among.
     reranking_latency_ms = None
     if settings.reranker_enabled:
         rerank_start = time.perf_counter()
         reranker = get_reranker(settings)
-        retrieved = reranker.rerank(effective_question, merged_candidates, top_k=request.top_k)
+        rerank_top_k = pool_k if settings.mmr_enabled else request.top_k
+        candidate_pool = reranker.rerank(effective_question, merged_candidates, top_k=rerank_top_k)
         reranking_latency_ms = (time.perf_counter() - rerank_start) * 1000
     else:
-        retrieved = merged_candidates[: request.top_k]
+        candidate_pool = merged_candidates
+
+    if settings.mmr_enabled:
+        candidate_vectors = embedder.embed_documents([c.text for c in candidate_pool])
+        retrieved = select_with_mmr(candidate_pool, candidate_vectors, request.top_k, settings.mmr_lambda)
+    else:
+        retrieved = candidate_pool[: request.top_k]
 
     llm_client = get_llm_client(settings)  # raises LLMNotConfiguredError; route maps it to 503
 

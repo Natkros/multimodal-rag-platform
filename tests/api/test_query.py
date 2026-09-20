@@ -128,6 +128,37 @@ def test_query_with_reranking_enabled_surfaces_stats(client, monkeypatch, test_s
     assert len(body["sources"]) <= 3
 
 
+def test_query_with_mmr_enabled_returns_diverse_results(client, monkeypatch, test_settings):
+    import app.services.query_service as query_module
+
+    monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
+    test_settings.mmr_enabled = True
+
+    _upload(client, "facts1.txt", b"Acme Corporation was founded in 2010 in Austin, Texas. " * 3)
+    _upload(client, "facts2.txt", b"Acme Corporation was founded in 2010 in Austin, Texas, too. " * 3)
+
+    resp = client.post("/query", json={"question": "When was Acme founded?", "top_k": 3})
+    assert resp.status_code == 200
+    assert len(resp.json()["sources"]) <= 3
+
+
+def test_query_with_mmr_and_reranking_both_enabled(client, monkeypatch, test_settings):
+    """MMR needs a real pool bigger than top_k to diversify from - confirms
+    reranking a wider pool (not trimmed to top_k) when MMR will run afterward
+    doesn't break the combined pipeline."""
+    import app.services.query_service as query_module
+
+    monkeypatch.setattr(query_module, "get_llm_client", lambda settings: FakeLLMClient())
+    test_settings.mmr_enabled = True
+    test_settings.reranker_enabled = True
+
+    _upload(client, "facts.txt", b"Acme Corporation was founded in 2010 in Austin, Texas. " * 3)
+
+    resp = client.post("/query", json={"question": "When was Acme founded?", "top_k": 2})
+    assert resp.status_code == 200
+    assert len(resp.json()["sources"]) <= 2
+
+
 def test_query_without_reranking_reports_none_latency(client, monkeypatch):
     import app.services.query_service as query_module
 

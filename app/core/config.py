@@ -87,6 +87,10 @@ class Settings(BaseSettings):
     reranker_model: str = Field(default="cross-encoder/ms-marco-MiniLM-L-6-v2")
     rerank_candidate_pool: int = Field(default=30)  # retrieve this many, rerank down to top_k
 
+    # --- MMR diversification (Phase 26) ---
+    mmr_enabled: bool = Field(default=False)  # opt-in — see docs/decisions/0026-phase26-advanced-rag.md
+    mmr_lambda: float = Field(default=0.5)  # 1.0 = pure relevance (Phase 1-9 behavior), 0.0 = pure diversity
+
     # --- Query intelligence (Phase 8) ---
     query_intelligence_enabled: bool = Field(default=False)  # master opt-in — see ADR 0008
     query_rewrite_enabled: bool = Field(default=True)  # sub-toggle, only active if the master switch is on
