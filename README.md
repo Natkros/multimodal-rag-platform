@@ -516,6 +516,12 @@ curl -X POST http://localhost:8000/query -H "Content-Type: application/json" \
   count (see [ADR 0013](docs/decisions/0013-phase13-evaluation-expansion.md))
 - Staleness detection (`check-staleness`) flags documents but never reindexes them
   automatically — that's a deliberate manual/scheduled step, not a gap
+- No agentic RAG (Phase 27, explicitly optional in the brief) — a real agentic
+  loop's entire value is the LLM making its own retrieve/reformulate/stop
+  decisions, which can't be verified with a scripted fake client the way Phase 8's
+  single-shot rewrite/decompose/expand calls can; building an unverifiable
+  LangGraph scaffold would look like a completed feature while proving nothing
+  (see [ADR 0027](docs/decisions/0027-phase27-agentic-rag.md))
 - Nothing has been deployed to a cloud environment
 
 ## 15. Future Work
@@ -603,4 +609,5 @@ docker/, Dockerfile, docker-compose.yml
 | 24 — Cloud deployment | ⏳ partial — `render.yaml` Blueprint written and reasoned through (ADR 0024), never deployed (no cloud credentials in this session) |
 | 25 — Load testing | ✅ done — real finding: this config collapses between 3-5 concurrent clients (ADR 0025), not a clean bill of health |
 | 26 — Advanced RAG (MMR) | ✅ done — measured negative result on this eval set (ADR 0026), off by default |
-| 27–30 — Agentic RAG, dashboard, experiment tracking, final demo | ⏳ |
+| 27 — Agentic RAG (optional) | ⏳ deliberately not built — needs a real LLM to produce anything verifiable (ADR 0027) |
+| 28–30 — Admin dashboard, experiment tracking, final demo | ⏳ |
