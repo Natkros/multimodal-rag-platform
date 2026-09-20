@@ -8,12 +8,25 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    @field_validator("context_max_chunks_per_document", mode="before")
+    @classmethod
+    def _empty_string_means_unset(cls, value):
+        """Phase 30: `.env.example` ships `CONTEXT_MAX_CHUNKS_PER_DOCUMENT=` (present,
+        empty — meant as "no diversity cap," matching this field's `None` default) so
+        a fresh clone has a discoverable line to fill in. An `int | None` field can't
+        parse `""` as an int, so literally following the README's own `cp
+        .env.example .env` Quickstart step crashed the app on startup with a
+        pydantic ValidationError — found by actually running that exact step, not
+        assumed to work. `str | None` fields (API_KEY, PINECONE_API_KEY, etc.) don't
+        have this problem since `""` is already a valid string."""
+        return None if value == "" else value
 
     # --- App ---
     app_name: str = "multimodal-rag-platform"

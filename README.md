@@ -25,7 +25,7 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
 ```
 `*` reranking ships in Phase 7 (opt-in, off by default — see §8b).
 
-## 3. Features (current — Phase 0–12)
+## 3. Features (current — Phase 0–29)
 
 - Upload PDF / TXT / Markdown / DOCX / HTML / images; idempotent via content-hash
   dedup (`409` on repeat upload)
@@ -106,11 +106,25 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
 - Dense (default) or hybrid retrieval → grounded generation (Anthropic Claude) →
   numbered citations
 - Explicit abstention when retrieval confidence is below threshold
-- Async ingestion (background task) with pollable job status
+- Async ingestion via in-process `BackgroundTasks` (default) or an opt-in
+  Redis/RQ job queue (`JOB_QUEUE_BACKEND=rq`, Phase 16) with pollable job status
+- Opt-in Redis retrieval cache (`CACHE_ENABLED=true`, Phase 17), API-key auth and
+  Redis-backed rate limiting (`API_KEY`, `RATE_LIMIT_ENABLED=true`, Phase 18)
+- `GET /metrics` (Prometheus) and structured JSON logging (`LOG_JSON=true`,
+  Phase 19); an Admin dashboard tab (live metrics + evaluation report history,
+  Phase 28) in the Streamlit frontend
+- Opt-in MMR result diversification (`MMR_ENABLED=true`, Phase 26) — measured to
+  trade ranking quality for less redundant results on this project's eval set, off
+  by default
 - `/health`, `/ready`, structured JSON errors, request-level latency breakdown
-- Deterministic retrieval-metrics harness (`scripts/run_eval.py`) with a seed dataset
-- Full test suite (unit / integration / API) — see [Testing](#testing)
-- `docker compose up` runs the full stack locally
+- Deterministic retrieval-metrics harness (`scripts/run_eval.py`) with a
+  57-question seed dataset; every report generated since Phase 29 records the
+  exact git commit that produced it (`scripts/list_experiments.py`)
+- Full test suite (unit / integration / API / adversarial) — 331 tests, 95%+
+  coverage — see [Testing](#testing)
+- `docker compose up` runs the full stack locally; a Render Blueprint
+  (`render.yaml`, Phase 24) exists for cloud deployment, written but not yet
+  deployed against a real account
 
 ## 4. Technology Stack & Why
 
@@ -552,8 +566,8 @@ pytest tests/ -v
 pytest tests/ --cov=app --cov-report=term-missing
 ```
 
-310+ tests (2 skip without a reachable Redis — Phase 16/17's real-queue/real-cache
-integration tests, which run for real in CI), 95% line coverage. No external
+331 tests (2 skip without a reachable Redis — Phase 16/17's real-queue/real-cache
+integration tests, which run for real in CI), 95%+ line coverage. No external
 services or API keys are required for the default run — the vector store, DB, and
 embedding model all run locally by default (see
 [ADR 0001](docs/decisions/0001-phase1-stack-choices.md)). Generation-path and
@@ -568,14 +582,15 @@ what's covered, what's genuinely gapped, and why.
 ## Repository Structure
 
 ```
-app/            FastAPI app: api / core / models / schemas / services / repositories
-frontend/       Streamlit UI (Phase 1)
-tests/          unit / integration / api / evaluation
-evaluation/     datasets, benchmarks, reports
-docs/           architecture, api, evaluation, deployment, ADRs
-scripts/        run_eval.py, compare_chunking_strategies.py, other CLIs
-docker/, Dockerfile, docker-compose.yml
-.github/workflows/  CI (lint, test, docker build)
+app/            FastAPI app: api / core / middleware / models / schemas / services / repositories
+frontend/       Streamlit UI (Upload / Ask / Documents / Admin tabs)
+workers/        Redis/RQ ingestion worker entrypoint (Phase 16, opt-in)
+tests/          unit / integration / api / adversarial / evaluation
+evaluation/     datasets, sample_docs corpus, reports (every run traceable to a git commit — Phase 29)
+docs/           architecture, api, evaluation, deployment, ADRs (0001-0029)
+scripts/        run_eval.py, compare_*.py, profile_pipeline.py, load_test.py, list_experiments.py
+Dockerfile, docker-compose.yml, render.yaml, .dockerignore
+.github/workflows/  CI (lint, type-check, test + coverage gate, docker build)
 ```
 
 ## Roadmap / Phase Status
@@ -612,4 +627,4 @@ docker/, Dockerfile, docker-compose.yml
 | 27 — Agentic RAG (optional) | ⏳ deliberately not built — needs a real LLM to produce anything verifiable (ADR 0027) |
 | 28 — Admin/evaluation dashboard | ✅ done — new Admin tab, verified live in a real browser against a real server (ADR 0028) |
 | 29 — Experiment tracking | ✅ done — every new report carries git commit/dirty-state metadata (ADR 0029), no MLflow/W&B needed |
-| 30 — Final demo | ⏳ |
+| 30 — Final polished pass | ✅ done — this table, the Features/Testing/Quickstart sections, and the repo tree brought back in sync with the actual current state after 29 phases of incremental changes |

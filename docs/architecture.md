@@ -227,6 +227,9 @@ reported as a "score" without stating how it was computed.
 
 ## 9. Deployment Strategy (summary — see `docs/deployment.md`)
 
-Phase 1–20 target `docker compose up` for local/dev. Phase 24 adds a real cloud target
-(documented, not assumed) — this repository will clearly mark whether a given README
-claim reflects local-only or actually-deployed infrastructure.
+`docker compose up` for local/dev. Phase 24 added a Render Blueprint
+(`render.yaml`) for a cloud target — written and reasoned through, not yet applied
+against a real account (no cloud credentials were available when it was built; see
+[ADR 0024](decisions/0024-phase24-cloud-deployment.md)). This repository clearly
+marks whether a given README claim reflects local-only or actually-deployed
+infrastructure — as of Phase 30, no deployment is live.
