@@ -412,6 +412,18 @@ every request got 401'd with no key configured anywhere until fixed to a falsy
 check, matching the same convention `anthropic_api_key`/`pinecone_api_key` already
 used correctly.
 
+**Production hardening pass** (post-Phase-30, [ADR 0031](docs/decisions/0031-production-hardening-security.md))
+added: a global exception handler that logs every unhandled exception server-side
+with a traceable `error_id`, returning only a generic message to the client (the
+absence of this was a real, silent observability gap — FastAPI's own default
+already avoided leaking internals, but also never logged anything); an HSTS
+response header; a decompression-bomb guard on `.docx` uploads (a zip archive
+with no built-in protection against a crafted file that expands enormously in
+memory); and pinned dependency lock files (`requirements.lock.txt`,
+`requirements-docker.lock.txt`, generated via `pip-compile`) that the Docker
+image now installs from instead of the loose `>=` ranges in
+`requirements.txt`.
+
 **Phase 14 fix**: upload filenames were used unsanitized to build the on-disk save
 path (`app/api/routes/documents.py`), a genuine path-traversal vulnerability — a
 filename like `../../../etc/passwd` or `..\..\evil.dll` could write outside
@@ -628,3 +640,13 @@ Dockerfile, docker-compose.yml, render.yaml, .dockerignore
 | 28 — Admin/evaluation dashboard | ✅ done — new Admin tab, verified live in a real browser against a real server (ADR 0028) |
 | 29 — Experiment tracking | ✅ done — every new report carries git commit/dirty-state metadata (ADR 0029), no MLflow/W&B needed |
 | 30 — Final polished pass | ✅ done — this table, the Features/Testing/Quickstart sections, and the repo tree brought back in sync with the actual current state after 29 phases of incremental changes |
+
+**Post-spec: bringing this to production level** (requested directly, beyond the original 30-phase plan):
+
+| Workstream | Status |
+|---|---|
+| Security hardening pass | ✅ done — global exception handler, HSTS, DOCX zip-bomb guard, pinned dependency locks ([ADR 0031](docs/decisions/0031-production-hardening-security.md)) |
+| Evaluation dataset expansion (toward 100–300 Qs) | ⏳ in progress — new sample documents added to genuinely grow the corpus rather than pad the existing 57 with near-duplicates |
+| Real Docker verification | ⏳ attempted again, same structural result as ADR 0021 — this sandbox's Docker Desktop backend exits on its own ~3.5 minutes after launch (no virtualization support), confirmed not a timing issue |
+| General code/doc polish | ⏳ in progress |
+| Live cloud deployment (Render) | ⏳ in progress, guided — requires the account owner's own login/payment action, which this assistant does not perform |

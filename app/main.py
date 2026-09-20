@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
+import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.deps import require_api_key
 from app.api.routes import documents, health, query
@@ -14,6 +17,8 @@ from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.models.db import init_db
 from app.services.observability.logging_config import configure_logging
+
+logger = logging.getLogger("app.errors")
 
 
 @asynccontextmanager
@@ -59,6 +64,22 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        """Production hardening: FastAPI's own default (no handler registered,
+        debug=False) already avoids leaking a stack trace to the client — but it
+        also never logs the exception anywhere, so a real 500 in production would
+        be invisible to anyone operating the service. Every unhandled exception
+        gets a unique `error_id` that's both logged (with the full traceback,
+        server-side only) and returned to the client, so a user-reported error can
+        actually be found in the logs without exposing internals in the response."""
+        error_id = str(uuid.uuid4())
+        logger.exception("Unhandled exception (error_id=%s) on %s %s", error_id, request.method, request.url.path)
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error.", "error_id": error_id},
+        )
 
     # /health and /ready stay key-free (k8s liveness/readiness probes hit these
     # before any key is provisioned to them); every other route requires

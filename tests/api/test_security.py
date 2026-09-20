@@ -8,6 +8,44 @@ def test_security_headers_present_on_every_response(client):
     assert resp.headers["x-content-type-options"] == "nosniff"
     assert resp.headers["x-frame-options"] == "DENY"
     assert resp.headers["referrer-policy"] == "no-referrer"
+    assert resp.headers["strict-transport-security"] == "max-age=31536000; includeSubDomains"
+
+
+def test_unhandled_exception_returns_generic_500_with_error_id_not_a_stack_trace(test_settings, monkeypatch):
+    """Production hardening: an unhandled exception must never leak internals
+    (file paths, exception type, stack trace) to the client, but must still be
+    traceable server-side via a returned error_id.
+
+    Uses its own TestClient with raise_server_exceptions=False: Starlette's
+    ServerErrorMiddleware sends the registered handler's response to the wire
+    exactly as a real HTTP client would receive it, but also always re-raises the
+    exception into the ASGI call stack so an in-process test run surfaces a real
+    bug loudly by default - the same reason every other test in this suite
+    deliberately keeps that default. This one test needs to instead observe the
+    response the way an external caller genuinely would."""
+    from fastapi.testclient import TestClient
+
+    import app.api.routes.query as query_route_module
+    from app.main import create_app
+    from app.models.db import init_db
+
+    def boom(request, db, settings):
+        raise RuntimeError("something broke internally: /secret/path")
+
+    monkeypatch.setattr(query_route_module, "run_query_pipeline", boom)
+
+    init_db()
+    app = create_app()
+    with TestClient(app, raise_server_exceptions=False) as c:
+        resp = c.post("/query", json={"question": "Anything?"})
+
+    assert resp.status_code == 500
+    body = resp.json()
+    assert body["detail"] == "Internal server error."
+    assert "error_id" in body
+    assert "/secret/path" not in resp.text
+    assert "RuntimeError" not in resp.text
+    assert "Traceback" not in resp.text
 
 
 def test_no_api_key_required_by_default(client):

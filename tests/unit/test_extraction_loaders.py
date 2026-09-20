@@ -103,6 +103,47 @@ def test_extract_docx_garbage_bytes_raises_corrupted():
         extract("docx", b"not a real docx file")
 
 
+def _zip_bytes_with_high_ratio_entry() -> bytes:
+    """A minimal zip whose one entry is highly compressible (all zero bytes) —
+    real decompression bombs use exactly this trick: a tiny compressed payload
+    that expands enormously, since a run of identical bytes compresses to almost
+    nothing under DEFLATE."""
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("word/document.xml", b"\x00" * 50_000_000)
+    return buf.getvalue()
+
+
+def test_extract_docx_rejects_zip_with_extreme_compression_ratio():
+    raw = _zip_bytes_with_high_ratio_entry()
+    with pytest.raises(CorruptedFileError, match="expansion ratio"):
+        extract("docx", raw)
+
+
+def test_extract_docx_rejects_zip_exceeding_uncompressed_size_cap():
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
+        # Many small, low-ratio entries whose *total* declared size still exceeds
+        # the cap - proves the guard checks the running total, not just one entry.
+        for i in range(4):
+            zf.writestr(f"part_{i}.bin", b"AB" * 40_000_000)  # ~80MB each, low ratio
+    raw = buf.getvalue()
+    with pytest.raises(CorruptedFileError, match="uncompressed size"):
+        extract("docx", raw)
+
+
+def test_extract_docx_normal_file_is_unaffected_by_zip_bomb_guard():
+    """A real, ordinary .docx has a normal compression ratio and total size -
+    confirms the guard doesn't false-positive on legitimate documents."""
+    raw = _docx_bytes([("Ordinary paragraph text.", None)])
+    result = extract("docx", raw)
+    assert "Ordinary paragraph text." in result.pages[0].text
+
+
 def test_extract_docx_captures_core_properties():
     doc = DocxDocument()
     doc.core_properties.title = "My Title"

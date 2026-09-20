@@ -176,12 +176,46 @@ def _extract_markdown(raw_bytes: bytes) -> ExtractionResult:
     return ExtractionResult(pages=[ExtractedPage(page_number=1, text=text)], page_count=1)
 
 
+_MAX_DOCX_UNCOMPRESSED_BYTES = 300 * 1024 * 1024  # 300 MB
+_MAX_DOCX_COMPRESSION_RATIO = 100  # uncompressed:compressed
+
+
+def _reject_if_zip_bomb(raw_bytes: bytes) -> None:
+    """Production hardening: a .docx file is a zip archive, and neither `zipfile`
+    nor `python-docx` guards against a decompression bomb — a small, crafted upload
+    that expands to gigabytes in memory when opened, a real denial-of-service risk
+    that `MAX_UPLOAD_SIZE_BYTES` alone doesn't stop (it only caps the *compressed*
+    upload size). Inspects each entry's *declared* size from the zip's own central
+    directory — cheap, and doesn't require decompressing anything — and rejects
+    before `DocxDocument()` ever touches the content if the total declared
+    uncompressed size, or any single entry's compression ratio, looks like a bomb
+    rather than an ordinary document."""
+    import io
+    import zipfile
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw_bytes)) as zf:
+            total_uncompressed = 0
+            for info in zf.infolist():
+                total_uncompressed += info.file_size
+                if info.compress_size > 0 and info.file_size / info.compress_size > _MAX_DOCX_COMPRESSION_RATIO:
+                    raise CorruptedFileError("DOCX rejected: a compressed entry's expansion ratio is too high")
+                if total_uncompressed > _MAX_DOCX_UNCOMPRESSED_BYTES:
+                    raise CorruptedFileError("DOCX rejected: declared uncompressed size exceeds the safety limit")
+    except zipfile.BadZipFile:
+        # Not a valid zip at all — DocxDocument() below will raise its own,
+        # more specific CorruptedFileError for this; nothing further to check here.
+        return
+
+
 def _extract_docx(raw_bytes: bytes) -> ExtractionResult:
     import io
     import zipfile
 
     from docx import Document as DocxDocument
     from docx.opc.exceptions import PackageNotFoundError
+
+    _reject_if_zip_bomb(raw_bytes)
 
     try:
         docx_doc = DocxDocument(io.BytesIO(raw_bytes))
