@@ -118,7 +118,7 @@ Query  → embed → retrieve → (rerank*) → build context → LLM → cite �
   by default
 - `/health`, `/ready`, structured JSON errors, request-level latency breakdown
 - Deterministic retrieval-metrics harness (`scripts/run_eval.py`) with a
-  57-question seed dataset; every report generated since Phase 29 records the
+  103-question seed dataset; every report generated since Phase 29 records the
   exact git commit that produced it (`scripts/list_experiments.py`)
 - Full test suite (unit / integration / API / adversarial) — 331 tests, 95%+
   coverage — see [Testing](#testing)
@@ -283,7 +283,9 @@ un-decomposed query — exactly the gap Phase 8's query decomposition exists to 
 now with a dataset large enough to actually show it. Full report:
 `evaluation/reports/dense_baseline_20260919_192100.json`. See
 [ADR 0013](docs/decisions/0013-phase13-evaluation-expansion.md) for how the dataset
-was built and why 57 (not yet 100-300) is where it honestly landed.
+was built and why 57 (not yet 100-300) is where it honestly landed at the time.
+*(Later grown to 103 questions in the post-spec production-hardening pass — see
+[ADR 0032](docs/decisions/0032-eval-dataset-expansion.md) and §14 below.)*
 
 ### 8d. Phase 26 — MMR diversification (measured negative, same as Phase 7)
 
@@ -534,12 +536,13 @@ curl -X POST http://localhost:8000/query -H "Content-Type: application/json" \
   [ADR 0025](docs/decisions/0025-phase25-load-testing.md)); root cause narrowed
   but not conclusively isolated without a Postgres-backed re-test this session
   couldn't run
-- Evaluation dataset is 57 hand-authored questions (up from 12 in Phase 1-12), still
-  short of the 100-300 target — this project's 8-document sample corpus genuinely runs
-  out of distinct, non-duplicate facts to ask about well before 100 questions without
-  writing near-duplicates or fabricating content that isn't in the source documents;
-  reaching 100-300 honestly means growing the corpus itself, not just the question
-  count (see [ADR 0013](docs/decisions/0013-phase13-evaluation-expansion.md))
+- Evaluation dataset is 103 hand-authored questions (up from 12 in Phase 1-12, 57 in
+  Phase 13), now inside the 100-300 target range for the first time — reached by
+  genuinely growing the corpus from 8 to 13 documents (five new Acme business
+  documents covering incident response, support SLAs, data retention, pricing, and
+  onboarding) rather than padding the original 57 with near-duplicates (see
+  [ADR 0013](docs/decisions/0013-phase13-evaluation-expansion.md) and
+  [ADR 0032](docs/decisions/0032-eval-dataset-expansion.md))
 - Staleness detection (`check-staleness`) flags documents but never reindexes them
   automatically — that's a deliberate manual/scheduled step, not a gap
 - No agentic RAG (Phase 27, explicitly optional in the brief) — a real agentic
@@ -622,7 +625,7 @@ Dockerfile, docker-compose.yml, render.yaml, .dockerignore
 | 10 — Grounded generation (configurable thresholds, uncertainty hedging) | ✅ done |
 | 11 — Citation engine (deterministic validation, on by default) | ✅ done |
 | 12 — Conversational RAG (real DB-backed conversation persistence) | ✅ done |
-| 13 — Evaluation framework (100–300 Qs) | 57 Qs, expanded from 12 (corpus-limited — see ADR 0013) ⏳ partial |
+| 13 — Evaluation framework (100–300 Qs) | 103 Qs, expanded from 12 → 57 → 103 (see ADR 0013, ADR 0032) ✅ done |
 | 14 — Failure testing | ✅ done — corrupted files, path traversal (found + fixed), extreme/malicious input, prompt injection (tested + honestly disclosed limits) |
 | 15 — Backend refactor | ✅ done — audited the layering, extracted the one real violation found (`/query`'s orchestration into `app/services/query_service.py`) |
 | 16 — Async job queue | ✅ done — opt-in Redis/RQ queue (`JOB_QUEUE_BACKEND=rq`), `background_tasks` stays the default |
@@ -646,7 +649,7 @@ Dockerfile, docker-compose.yml, render.yaml, .dockerignore
 | Workstream | Status |
 |---|---|
 | Security hardening pass | ✅ done — global exception handler, HSTS, DOCX zip-bomb guard, pinned dependency locks ([ADR 0031](docs/decisions/0031-production-hardening-security.md)) |
-| Evaluation dataset expansion (toward 100–300 Qs) | ⏳ in progress — new sample documents added to genuinely grow the corpus rather than pad the existing 57 with near-duplicates |
+| Evaluation dataset expansion (toward 100–300 Qs) | ✅ done — 57 → 103 questions, 5 new sample documents genuinely grew the corpus rather than padding with near-duplicates ([ADR 0032](docs/decisions/0032-eval-dataset-expansion.md)) |
 | Real Docker verification | ⏳ attempted again, same structural result as ADR 0021 — this sandbox's Docker Desktop backend exits on its own ~3.5 minutes after launch (no virtualization support), confirmed not a timing issue |
 | General code/doc polish | ⏳ in progress |
 | Live cloud deployment (Render) | ⏳ in progress, guided — requires the account owner's own login/payment action, which this assistant does not perform |

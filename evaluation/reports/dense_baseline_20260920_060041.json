@@ -1,0 +1,922 @@
+{
+  "experiment": {
+    "generated_at": "2026-09-20T06:00:41.452313+00:00",
+    "python_version": "3.14.7",
+    "git_commit": "efb9e4ded6636a183f279ce8600168400430966a",
+    "git_dirty": true
+  },
+  "system": "dense_only",
+  "metrics": {
+    "n_queries": 57,
+    "n_answerable_queries": 50,
+    "n_unanswerable_queries": 7,
+    "recall@1": 0.56,
+    "precision@1": 0.58,
+    "ndcg@1": 0.58,
+    "hit_rate@1": 0.58,
+    "recall@3": 0.77,
+    "precision@3": 0.2866666666666666,
+    "ndcg@3": 0.6918430423562295,
+    "hit_rate@3": 0.78,
+    "recall@5": 0.85,
+    "precision@5": 0.2,
+    "ndcg@5": 0.7271715443514049,
+    "hit_rate@5": 0.88,
+    "recall@10": 0.85,
+    "precision@10": 0.2,
+    "ndcg@10": 0.7271715443514049,
+    "hit_rate@10": 0.88,
+    "mrr": 0.693,
+    "latency_p50_ms": 11.729199999535922,
+    "latency_p95_ms": 16.61340000009659
+  },
+  "rows": [
+    {
+      "id": "q001",
+      "question": "How many days per week can Acme employees work remotely without a special request?",
+      "query_type": "factual",
+      "retrieved": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-1",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-0",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0"
+      ],
+      "latency_ms": 18.49
+    },
+    {
+      "id": "q002",
+      "question": "How much PTO do full-time Acme employees accrue per month, and what is the annual cap?",
+      "query_type": "factual",
+      "retrieved": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-1",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-0"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0"
+      ],
+      "latency_ms": 16.61
+    },
+    {
+      "id": "q003",
+      "question": "How long is primary caregiver parental leave at Acme, and is it fully paid?",
+      "query_type": "table",
+      "retrieved": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-1",
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0",
+        "2f96d23a-fe32-5664-a0ed-f20b6acfd7df::chunk-0",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-0"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0"
+      ],
+      "latency_ms": 12.26
+    },
+    {
+      "id": "q004",
+      "question": "What is Acme's cancellation and refund policy for annual customer contracts?",
+      "query_type": "factual",
+      "retrieved": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-0",
+        "2f96d23a-fe32-5664-a0ed-f20b6acfd7df::chunk-0",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-0",
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1"
+      ],
+      "latency_ms": 11.53
+    },
+    {
+      "id": "q005",
+      "question": "How quickly must employees enable MFA after being hired, and how quickly must a security incident be reported?",
+      "query_type": "multi_document",
+      "retrieved": [
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-0",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-1",
+        "a634b2d9-6331-5ea7-a5e1-0a10c5b0b119::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "a634b2d9-6331-5ea7-a5e1-0a10c5b0b119::chunk-1"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1"
+      ],
+      "latency_ms": 13.56
+    },
+    {
+      "id": "q006",
+      "question": "What was Acme's Q2 2025 revenue and operating margin?",
+      "query_type": "factual",
+      "retrieved": [
+        "455d0a01-59be-5ad2-bdcd-86116bf92972::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-0",
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0",
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1"
+      ],
+      "latency_ms": 11.66
+    },
+    {
+      "id": "q007",
+      "question": "Compare Acme's Q2 2024 revenue to Q2 2025 revenue and explain the primary growth drivers.",
+      "query_type": "comparison",
+      "retrieved": [
+        "455d0a01-59be-5ad2-bdcd-86116bf92972::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-0",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-1",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1"
+      ],
+      "latency_ms": 13.08
+    },
+    {
+      "id": "q008",
+      "question": "What happens to unused PTO above 5 days at the end of the fiscal year?",
+      "query_type": "factual",
+      "retrieved": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0",
+        "2f96d23a-fe32-5664-a0ed-f20b6acfd7df::chunk-0",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-1",
+        "2f96d23a-fe32-5664-a0ed-f20b6acfd7df::chunk-1",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0"
+      ],
+      "latency_ms": 12.58
+    },
+    {
+      "id": "q009",
+      "question": "According to the paper, what does the Transformer architecture rely on instead of recurrence and convolution?",
+      "query_type": "semantic",
+      "retrieved": [
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-5",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-3",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-4",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-0",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-20"
+      ],
+      "expected": [
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-0"
+      ],
+      "latency_ms": 12.47
+    },
+    {
+      "id": "q010",
+      "question": "What is Acme's policy on quantum computing research grants?",
+      "query_type": "unanswerable",
+      "retrieved": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-0",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-0"
+      ],
+      "expected": [],
+      "latency_ms": 12.07
+    },
+    {
+      "id": "q011",
+      "question": "What was the weather in Austin on the day Acme was founded?",
+      "query_type": "unanswerable",
+      "retrieved": [
+        "90851a4e-f940-5a00-a273-c5d695152492::chunk-201",
+        "f8317b37-5a62-511c-a7ed-01627ac0b2c3::chunk-274",
+        "90851a4e-f940-5a00-a273-c5d695152492::chunk-180",
+        "90851a4e-f940-5a00-a273-c5d695152492::chunk-196",
+        "90851a4e-f940-5a00-a273-c5d695152492::chunk-174"
+      ],
+      "expected": [],
+      "latency_ms": 11.64
+    },
+    {
+      "id": "q012",
+      "question": "second quarter revenue",
+      "query_type": "ambiguous",
+      "retrieved": [
+        "455d0a01-59be-5ad2-bdcd-86116bf92972::chunk-0",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-1",
+        "90851a4e-f940-5a00-a273-c5d695152492::chunk-514",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-0",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-1"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1"
+      ],
+      "latency_ms": 10.77
+    },
+    {
+      "id": "q013",
+      "question": "What is the minimum internet speed remote Acme employees must maintain?",
+      "query_type": "factual",
+      "retrieved": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-1",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-1",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0"
+      ],
+      "latency_ms": 11.26
+    },
+    {
+      "id": "q014",
+      "question": "During what hours must remote employees be reachable on Slack?",
+      "query_type": "factual",
+      "retrieved": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-1",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-1",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-0",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-0"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0"
+      ],
+      "latency_ms": 11.0
+    },
+    {
+      "id": "q015",
+      "question": "What day and time is Acme's weekly all-hands meeting?",
+      "query_type": "factual",
+      "retrieved": [
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-1",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-1",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-0"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0"
+      ],
+      "latency_ms": 12.09
+    },
+    {
+      "id": "q016",
+      "question": "How far in advance must an employee submit a Flexible Work Arrangement request to work remotely five days a week?",
+      "query_type": "factual",
+      "retrieved": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-1",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-1",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-0",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-0"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0"
+      ],
+      "latency_ms": 11.71
+    },
+    {
+      "id": "q017",
+      "question": "Within how many days must expense reports normally be submitted, and after how many days is VP-level approval required?",
+      "query_type": "multi_part",
+      "retrieved": [
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-1",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-1"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0"
+      ],
+      "latency_ms": 11.42
+    },
+    {
+      "id": "q018",
+      "question": "What was Acme's operating margin in Q2 2025 compared to Q2 2024?",
+      "query_type": "comparison",
+      "retrieved": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-0",
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0",
+        "2f96d23a-fe32-5664-a0ed-f20b6acfd7df::chunk-1"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1"
+      ],
+      "latency_ms": 12.1
+    },
+    {
+      "id": "q019",
+      "question": "How does Acme's Q2 2025 year-over-year revenue growth rate compare to Q2 2024's?",
+      "query_type": "comparison",
+      "retrieved": [
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-0",
+        "455d0a01-59be-5ad2-bdcd-86116bf92972::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0",
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1"
+      ],
+      "latency_ms": 12.37
+    },
+    {
+      "id": "q020",
+      "question": "What were the two primary drivers of Acme's Q2 2025 revenue growth?",
+      "query_type": "factual",
+      "retrieved": [
+        "455d0a01-59be-5ad2-bdcd-86116bf92972::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-0",
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1"
+      ],
+      "latency_ms": 11.22
+    },
+    {
+      "id": "q021",
+      "question": "What percentage of Acme's Q2 2024 revenue came from the Enterprise tier?",
+      "query_type": "factual",
+      "retrieved": [
+        "455d0a01-59be-5ad2-bdcd-86116bf92972::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-0",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-1",
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1"
+      ],
+      "latency_ms": 11.35
+    },
+    {
+      "id": "q022",
+      "question": "What certification must Tier 1 vendors maintain under Acme's vendor security policy?",
+      "query_type": "factual",
+      "retrieved": [
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-1",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-0",
+        "2f96d23a-fe32-5664-a0ed-f20b6acfd7df::chunk-1"
+      ],
+      "expected": [
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0"
+      ],
+      "latency_ms": 10.91
+    },
+    {
+      "id": "q023",
+      "question": "What encryption standard must Tier 1 vendors use for data at rest and in transit?",
+      "query_type": "factual",
+      "retrieved": [
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-1",
+        "2f96d23a-fe32-5664-a0ed-f20b6acfd7df::chunk-1",
+        "a634b2d9-6331-5ea7-a5e1-0a10c5b0b119::chunk-0",
+        "a634b2d9-6331-5ea7-a5e1-0a10c5b0b119::chunk-2"
+      ],
+      "expected": [
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0"
+      ],
+      "latency_ms": 11.49
+    },
+    {
+      "id": "q024",
+      "question": "Within how many hours must a Tier 1 vendor notify Acme of a security incident affecting Acme data?",
+      "query_type": "factual",
+      "retrieved": [
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-0",
+        "a634b2d9-6331-5ea7-a5e1-0a10c5b0b119::chunk-1",
+        "2f96d23a-fe32-5664-a0ed-f20b6acfd7df::chunk-1",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-0"
+      ],
+      "expected": [
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0"
+      ],
+      "latency_ms": 12.26
+    },
+    {
+      "id": "q025",
+      "question": "What is the minimum TLS version Tier 2 vendors must use for data in transit?",
+      "query_type": "factual",
+      "retrieved": [
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-1",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-1",
+        "2f96d23a-fe32-5664-a0ed-f20b6acfd7df::chunk-1",
+        "a634b2d9-6331-5ea7-a5e1-0a10c5b0b119::chunk-1"
+      ],
+      "expected": [
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0"
+      ],
+      "latency_ms": 11.53
+    },
+    {
+      "id": "q026",
+      "question": "How many business days does Acme take to revoke a departing vendor's system access, and how many days does the vendor have to confirm data deletion?",
+      "query_type": "multi_part",
+      "retrieved": [
+        "2f96d23a-fe32-5664-a0ed-f20b6acfd7df::chunk-1",
+        "2f96d23a-fe32-5664-a0ed-f20b6acfd7df::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-1"
+      ],
+      "expected": [
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0"
+      ],
+      "latency_ms": 12.9
+    },
+    {
+      "id": "q027",
+      "question": "How many of Acme's 19 Tier 1 vendor contracts were renewed with updated security addenda in Q2 2025?",
+      "query_type": "factual",
+      "retrieved": [
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-0",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-0",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-0"
+      ],
+      "expected": [
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0"
+      ],
+      "latency_ms": 12.43
+    },
+    {
+      "id": "q028",
+      "question": "According to the vendor risk tier table, how often is a Tier 3 vendor reviewed?",
+      "query_type": "table",
+      "retrieved": [
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-1",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-1",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-1",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-38",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-40"
+      ],
+      "expected": [
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-1"
+      ],
+      "latency_ms": 10.87
+    },
+    {
+      "id": "q029",
+      "question": "What kind of data access defines a Tier 2 vendor under Acme's risk framework?",
+      "query_type": "table",
+      "retrieved": [
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-1",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "2f96d23a-fe32-5664-a0ed-f20b6acfd7df::chunk-1",
+        "a634b2d9-6331-5ea7-a5e1-0a10c5b0b119::chunk-2"
+      ],
+      "expected": [
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-1"
+      ],
+      "latency_ms": 11.26
+    },
+    {
+      "id": "q030",
+      "question": "Compare how quickly a security incident must be reported by a Tier 1 vendor versus by an Acme employee.",
+      "query_type": "multi_document",
+      "retrieved": [
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-0",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-0",
+        "a634b2d9-6331-5ea7-a5e1-0a10c5b0b119::chunk-0",
+        "a634b2d9-6331-5ea7-a5e1-0a10c5b0b119::chunk-1"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0"
+      ],
+      "latency_ms": 12.92
+    },
+    {
+      "id": "q031",
+      "question": "What image file formats does RoomWise accept, and what is the maximum file size per image?",
+      "query_type": "multi_part",
+      "retrieved": [
+        "455d0a01-59be-5ad2-bdcd-86116bf92972::chunk-0"
+      ],
+      "expected": [
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0"
+      ],
+      "latency_ms": 11.83
+    },
+    {
+      "id": "q032",
+      "question": "What is the maximum number of images allowed per listing in RoomWise?",
+      "query_type": "factual",
+      "retrieved": [
+        "455d0a01-59be-5ad2-bdcd-86116bf92972::chunk-0"
+      ],
+      "expected": [
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0"
+      ],
+      "latency_ms": 11.18
+    },
+    {
+      "id": "q033",
+      "question": "How much does the RoomWise Pro plan cost per month, and how many listings does it allow?",
+      "query_type": "multi_part",
+      "retrieved": [
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-0",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-1",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-1",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1"
+      ],
+      "expected": [
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0"
+      ],
+      "latency_ms": 17.75
+    },
+    {
+      "id": "q034",
+      "question": "What is included in the RoomWise Agency plan?",
+      "query_type": "factual",
+      "retrieved": [
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-0",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-1",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-1",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-1"
+      ],
+      "expected": [
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0"
+      ],
+      "latency_ms": 12.68
+    },
+    {
+      "id": "q035",
+      "question": "Are there cancellation fees for monthly RoomWise plans?",
+      "query_type": "factual",
+      "retrieved": [
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-1",
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0"
+      ],
+      "expected": [
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0"
+      ],
+      "latency_ms": 14.58
+    },
+    {
+      "id": "q036",
+      "question": "Which languages does RoomWise support for generated listing copy?",
+      "query_type": "factual",
+      "retrieved": [
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-21",
+        "90851a4e-f940-5a00-a273-c5d695152492::chunk-513",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-25",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-26"
+      ],
+      "expected": [
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0"
+      ],
+      "latency_ms": 12.43
+    },
+    {
+      "id": "q037",
+      "question": "What is the support response time for Starter plan customers versus Pro/Agency plan customers?",
+      "query_type": "comparison",
+      "retrieved": [
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-0",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-1",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-1",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1"
+      ],
+      "expected": [
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0"
+      ],
+      "latency_ms": 12.03
+    },
+    {
+      "id": "q038",
+      "question": "What was the dollar amount of expense report ER-20458?",
+      "query_type": "factual",
+      "retrieved": [
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0",
+        "455d0a01-59be-5ad2-bdcd-86116bf92972::chunk-0",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-1",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-0",
+        "90851a4e-f940-5a00-a273-c5d695152492::chunk-217"
+      ],
+      "expected": [
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0"
+      ],
+      "latency_ms": 11.38
+    },
+    {
+      "id": "q039",
+      "question": "Who submitted expense report ER-20458 and on what date?",
+      "query_type": "multi_part",
+      "retrieved": [
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0",
+        "455d0a01-59be-5ad2-bdcd-86116bf92972::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "a634b2d9-6331-5ea7-a5e1-0a10c5b0b119::chunk-0",
+        "90851a4e-f940-5a00-a273-c5d695152492::chunk-180"
+      ],
+      "expected": [
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0"
+      ],
+      "latency_ms": 10.57
+    },
+    {
+      "id": "q040",
+      "question": "Within how many business days will the approved expense report be reimbursed?",
+      "query_type": "factual",
+      "retrieved": [
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-0",
+        "90851a4e-f940-5a00-a273-c5d695152492::chunk-514",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-0"
+      ],
+      "expected": [
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0"
+      ],
+      "latency_ms": 11.21
+    },
+    {
+      "id": "q041",
+      "question": "Show me Acme's quarterly revenue chart.",
+      "query_type": "image",
+      "retrieved": [
+        "455d0a01-59be-5ad2-bdcd-86116bf92972::chunk-0"
+      ],
+      "expected": [
+        "455d0a01-59be-5ad2-bdcd-86116bf92972::chunk-0"
+      ],
+      "latency_ms": 13.31
+    },
+    {
+      "id": "q042",
+      "question": "What BLEU score did the Transformer achieve on the WMT 2014 English-to-German translation task?",
+      "query_type": "factual",
+      "retrieved": [
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-19",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-18",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-21",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-23",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-1"
+      ],
+      "expected": [
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-0"
+      ],
+      "latency_ms": 11.43
+    },
+    {
+      "id": "q043",
+      "question": "What BLEU score did the Transformer achieve on the WMT 2014 English-to-French translation task?",
+      "query_type": "factual",
+      "retrieved": [
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-19",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-18",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-21",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-23",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-1"
+      ],
+      "expected": [
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-1",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-0"
+      ],
+      "latency_ms": 11.94
+    },
+    {
+      "id": "q044",
+      "question": "How long did it take to train the Transformer model that achieved the English-to-French state-of-the-art result, and on what hardware?",
+      "query_type": "multi_part",
+      "retrieved": [
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-20",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-19",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-18",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-21",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-1"
+      ],
+      "expected": [
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-1",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-0"
+      ],
+      "latency_ms": 12.87
+    },
+    {
+      "id": "q045",
+      "question": "Besides machine translation, what other task does the paper show the Transformer generalizes well to?",
+      "query_type": "semantic",
+      "retrieved": [
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-20",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-21",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-1",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-24",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-25"
+      ],
+      "expected": [
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-1"
+      ],
+      "latency_ms": 11.73
+    },
+    {
+      "id": "q046",
+      "question": "How many identical layers are in the Transformer's encoder stack?",
+      "query_type": "factual",
+      "retrieved": [
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-5",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-12",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-9",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-21",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-18"
+      ],
+      "expected": [
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-5"
+      ],
+      "latency_ms": 11.35
+    },
+    {
+      "id": "q047",
+      "question": "What is the output dimension used throughout the Transformer's sub-layers and embedding layers?",
+      "query_type": "factual",
+      "retrieved": [
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-5",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-9",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-12",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-20",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-21"
+      ],
+      "expected": [
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-5"
+      ],
+      "latency_ms": 11.34
+    },
+    {
+      "id": "q048",
+      "question": "Compare the encryption requirement for Tier 1 vendors with the security requirement for Acme employees' laptops.",
+      "query_type": "multi_document",
+      "retrieved": [
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-0",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-1",
+        "2f96d23a-fe32-5664-a0ed-f20b6acfd7df::chunk-1"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0"
+      ],
+      "latency_ms": 11.77
+    },
+    {
+      "id": "q049",
+      "question": "What was Acme's stock price on the day of its IPO?",
+      "query_type": "unanswerable",
+      "retrieved": [
+        "2350ec79-6983-57dd-8785-5ebb2ccce4cf::chunk-0",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "455d0a01-59be-5ad2-bdcd-86116bf92972::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0"
+      ],
+      "expected": [],
+      "latency_ms": 11.76
+    },
+    {
+      "id": "q050",
+      "question": "How many employees does RoomWise's engineering team have?",
+      "query_type": "unanswerable",
+      "retrieved": [
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-1",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-0",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-1",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0"
+      ],
+      "expected": [],
+      "latency_ms": 10.77
+    },
+    {
+      "id": "q051",
+      "question": "What programming language is RoomWise's backend written in?",
+      "query_type": "unanswerable",
+      "retrieved": [
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0",
+        "90851a4e-f940-5a00-a273-c5d695152492::chunk-519",
+        "90851a4e-f940-5a00-a273-c5d695152492::chunk-513",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-0",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-40"
+      ],
+      "expected": [],
+      "latency_ms": 10.76
+    },
+    {
+      "id": "q052",
+      "question": "What's the plan?",
+      "query_type": "ambiguous",
+      "retrieved": [
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-1",
+        "90851a4e-f940-5a00-a273-c5d695152492::chunk-377",
+        "90851a4e-f940-5a00-a273-c5d695152492::chunk-86",
+        "90851a4e-f940-5a00-a273-c5d695152492::chunk-188",
+        "f8317b37-5a62-511c-a7ed-01627ac0b2c3::chunk-518"
+      ],
+      "expected": [],
+      "latency_ms": 10.66
+    },
+    {
+      "id": "q053",
+      "question": "what about tier 2",
+      "query_type": "ambiguous",
+      "retrieved": [
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-1",
+        "3e2e46ab-2aae-5bae-a49a-5e68fbc315cc::chunk-0",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-18",
+        "5aa11133-7d1c-5cad-9716-5dcc77e35a41::chunk-19",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-0"
+      ],
+      "expected": [],
+      "latency_ms": 10.92
+    },
+    {
+      "id": "q054",
+      "question": "What is Acme's remote work day limit and what is the minimum internet speed required?",
+      "query_type": "multi_part",
+      "retrieved": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-1",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-1",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-0",
+        "c86fc693-1eb9-539b-a71b-0d0494657c2a::chunk-0"
+      ],
+      "expected": [
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-0"
+      ],
+      "latency_ms": 12.25
+    },
+    {
+      "id": "q055",
+      "question": "What is the RoomWise Starter plan price and how many listings does it include?",
+      "query_type": "multi_part",
+      "retrieved": [
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-1",
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-0",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-1",
+        "455d0a01-59be-5ad2-bdcd-86116bf92972::chunk-0"
+      ],
+      "expected": [
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0"
+      ],
+      "latency_ms": 11.02
+    },
+    {
+      "id": "q056",
+      "question": "What is the maximum image size RoomWise accepts and what is the maximum number of images per listing?",
+      "query_type": "multi_part",
+      "retrieved": [
+        "455d0a01-59be-5ad2-bdcd-86116bf92972::chunk-0"
+      ],
+      "expected": [
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0"
+      ],
+      "latency_ms": 11.26
+    },
+    {
+      "id": "q057",
+      "question": "What happens to a customer's monthly RoomWise subscription if they cancel mid-billing-period?",
+      "query_type": "factual",
+      "retrieved": [
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0",
+        "c6232c8a-2d21-5a6e-b0c4-ec3ba2266922::chunk-0",
+        "a66849ac-f04d-5dda-ad97-86ea021b4904::chunk-1",
+        "583a0ed2-f753-5c69-aa48-960ce6f35988::chunk-0",
+        "2f96d23a-fe32-5664-a0ed-f20b6acfd7df::chunk-0"
+      ],
+      "expected": [
+        "18139046-48f8-5468-8a50-6eb87dd69cc6::chunk-0"
+      ],
+      "latency_ms": 12.01
+    }
+  ]
+}

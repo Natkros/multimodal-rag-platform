@@ -6,7 +6,7 @@ Requested directly by the project owner as part of a "bring this to production
 level" pass, beyond the original 30-phase specification. This ADR covers the
 security-specific findings; dataset expansion, general polish, and the live
 deployment are each their own follow-up work covered separately (see README's
-Roadmap section for the running list, and ADR 0032 for the deployment attempt).
+Roadmap section for the running list, and ADR 0032 for the dataset expansion).
 
 ## Real gap found: unhandled exceptions were never logged server-side
 

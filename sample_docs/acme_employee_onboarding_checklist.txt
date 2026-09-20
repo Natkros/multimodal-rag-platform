@@ -1,0 +1,45 @@
+Acme Corporation - New Employee Onboarding Checklist
+
+Purpose: This checklist governs every new hire's first 30 days at Acme, ensuring
+consistent, auditable onboarding across all departments.
+
+Before Day 1 (completed by the hiring manager):
+Equipment is ordered no later than 5 business days before the employee's start date.
+IT provisions a laptop, a company email account, and Slack access 2 business days
+before start. Facilities issues a building access badge on the morning of the
+employee's first day, not before, for security reasons.
+
+Day 1:
+The new employee completes I-9 identity verification and tax withholding forms with
+HR before noon. IT enables multi-factor authentication on the employee's corporate
+accounts, matching the 7-day MFA enrollment window in the Employee Handbook, though
+onboarding aims to complete this on Day 1 itself. The employee attends a 90-minute
+company orientation session covering Acme's mission, org structure, and code of
+conduct.
+
+Week 1:
+The employee completes mandatory security awareness training (45 minutes) and
+harassment prevention training (60 minutes), both required within the first 5
+business days per Acme's compliance policy. The hiring manager schedules 1:1
+meetings with every immediate team member during week 1. The employee is enrolled in
+Acme's benefits program, with a 30-day window to make benefit elections before
+default coverage is automatically applied.
+
+Day 30:
+The hiring manager completes a 30-day check-in survey covering role clarity, team
+integration, and any blockers. HR reviews the completed onboarding checklist and
+archives it in the employee's personnel file, which is retained for 7 years after
+termination per Acme's Data Retention Policy.
+
+Probationary Period:
+All new hires (except those in roles covered by a collective bargaining agreement)
+are subject to a 90-day probationary period, during which either party may end the
+employment relationship with 2 weeks' notice instead of Acme's standard 4-week
+notice period for employees past probation.
+
+Remote Employee Additions:
+Remote new hires receive equipment via courier rather than in-person handoff, with
+delivery confirmed at least 1 business day before their start date. Remote employees
+complete the same Day 1 orientation session via video conference and must confirm a
+stable internet connection of at least 25 Mbps, matching the Employee Handbook's
+remote work requirement, before their equipment ships.

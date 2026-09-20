@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Acme Data Retention Policy</title></head>
+<body>
+<h1>Acme Corporation Data Retention Policy</h1>
+
+<h2>Purpose</h2>
+<p>This policy defines how long Acme retains different categories of data, and the
+process for deleting data once its retention period expires. It applies to all data
+Acme collects, processes, or stores, whether on Acme-owned infrastructure or a
+third-party processor.</p>
+
+<h2>Retention Periods by Data Category</h2>
+<p>Customer account data (name, email, billing address) is retained for the duration
+of an active subscription plus 90 days after cancellation, to allow for account
+reactivation. Payment transaction records are retained for 7 years to satisfy tax and
+financial audit requirements. Application log data containing no personal information
+is retained for 180 days. Support ticket contents, including any attachments a
+customer uploads, are retained for 2 years after ticket closure. Employee HR records
+are retained for 7 years after termination of employment, per Acme's standard
+employment law compliance guidance.</p>
+
+<h2>Deletion Process</h2>
+<p>Data reaching the end of its retention period is deleted within 30 days via an
+automated nightly job. Deletion is a hard delete from primary storage; backups
+containing the deleted data are purged on the next backup rotation cycle, which
+occurs every 45 days. A customer submitting a formal data deletion request under
+applicable privacy law (e.g. a GDPR Article 17 request) receives confirmation of
+deletion within 30 days of the request, faster than the standard rotation-based
+purge if necessary.</p>
+
+<h2>Legal Holds</h2>
+<p>If Acme's legal team places a legal hold on a data category (for example, during
+active litigation), that data is exempted from its normal retention schedule and
+retained until the legal team formally releases the hold. A legal hold overrides the
+automated deletion job entirely for the affected records.</p>
+
+<h2>Third-Party Processors</h2>
+<p>Any third-party data processor Acme uses must contractually commit to the same
+retention and deletion timelines as this policy, verified annually via Acme's vendor
+security review process (see the Vendor Security Policy). Acme's cloud infrastructure
+provider retains encrypted backups for a maximum of 45 days, matching Acme's own
+backup rotation cycle.</p>
+
+<h2>Policy Review</h2>
+<p>This policy is reviewed annually by Acme's Legal and Security teams jointly, and
+whenever a new data category is introduced or a relevant law changes. The most recent
+review was completed in Q1 2026, with no changes to the retention periods above.</p>
+</body>
+</html>
