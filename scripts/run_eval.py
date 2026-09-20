@@ -19,7 +19,6 @@ import argparse
 import json
 import sys
 import time
-from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -123,12 +122,12 @@ def run(dataset_path: Path, corpus_dir: Path, top_k: int, report_dir: Path) -> d
         sorted(latencies_ms)[int(len(latencies_ms) * 0.95)] if latencies_ms else 0
     )
 
-    report_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-    report_path = report_dir / f"dense_baseline_{timestamp}.json"
-    report_path.write_text(
-        json.dumps({"system": "dense_only", "metrics": metrics, "rows": rows}, indent=2),
-        encoding="utf-8",
+    from app.services.evaluation.experiment_log import write_experiment_report
+
+    report_path = write_experiment_report(
+        {"system": "dense_only", "metrics": metrics, "rows": rows},
+        name_prefix="dense_baseline",
+        report_dir=report_dir,
     )
     print(json.dumps(metrics, indent=2))
     print(f"\nReport written to {report_path}")

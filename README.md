@@ -611,4 +611,5 @@ docker/, Dockerfile, docker-compose.yml
 | 26 — Advanced RAG (MMR) | ✅ done — measured negative result on this eval set (ADR 0026), off by default |
 | 27 — Agentic RAG (optional) | ⏳ deliberately not built — needs a real LLM to produce anything verifiable (ADR 0027) |
 | 28 — Admin/evaluation dashboard | ✅ done — new Admin tab, verified live in a real browser against a real server (ADR 0028) |
-| 29–30 — Experiment tracking, final demo | ⏳ |
+| 29 — Experiment tracking | ✅ done — every new report carries git commit/dirty-state metadata (ADR 0029), no MLflow/W&B needed |
+| 30 — Final demo | ⏳ |

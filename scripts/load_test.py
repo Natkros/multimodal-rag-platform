@@ -23,10 +23,11 @@ import sys
 import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, wait
-from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 BASE_URL = "http://127.0.0.1:8321"
 
@@ -173,7 +174,6 @@ def main() -> None:
         errors = [r for r in all_results if r["error"] is not None or (r["status_code"] or 0) >= 400]
 
         report = {
-            "generated_at": datetime.now(UTC).isoformat(),
             "config": {"concurrency": args.concurrency, "requests_per_worker": args.requests_per_worker},
             "total_requests": len(all_results),
             "wall_time_s": round(wall_time_s, 3),
@@ -199,10 +199,9 @@ def main() -> None:
         }
         print(json.dumps(report, indent=2))
 
-        out_dir = Path("evaluation/reports")
-        out_dir.mkdir(parents=True, exist_ok=True)
-        out_path = out_dir / f"load_test_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.json"
-        out_path.write_text(json.dumps(report, indent=2))
+        from app.services.evaluation.experiment_log import write_experiment_report
+
+        out_path = write_experiment_report(report, name_prefix="load_test")
         print(f"\nReport written to {out_path}")
 
         if errors:
