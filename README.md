@@ -610,4 +610,5 @@ docker/, Dockerfile, docker-compose.yml
 | 25 — Load testing | ✅ done — real finding: this config collapses between 3-5 concurrent clients (ADR 0025), not a clean bill of health |
 | 26 — Advanced RAG (MMR) | ✅ done — measured negative result on this eval set (ADR 0026), off by default |
 | 27 — Agentic RAG (optional) | ⏳ deliberately not built — needs a real LLM to produce anything verifiable (ADR 0027) |
-| 28–30 — Admin dashboard, experiment tracking, final demo | ⏳ |
+| 28 — Admin/evaluation dashboard | ✅ done — new Admin tab, verified live in a real browser against a real server (ADR 0028) |
+| 29–30 — Experiment tracking, final demo | ⏳ |

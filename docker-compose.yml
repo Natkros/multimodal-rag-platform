@@ -67,6 +67,14 @@ services:
       - "8501:8501"
     environment:
       API_BASE_URL: http://api:8000
+      # Phase 28: lets the Admin tab's evaluation-report-history view read real
+      # reports from the host's evaluation/reports/ — read-only, and this mount is
+      # docker-compose-specific plumbing, not something every deployment target
+      # (e.g. Phase 24's render.yaml) provides. See
+      # docs/decisions/0028-phase28-admin-dashboard.md.
+      EVAL_REPORTS_DIR: /app/evaluation_reports
+    volumes:
+      - ./evaluation/reports:/app/evaluation_reports:ro
     depends_on:
       - api
 
