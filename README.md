@@ -289,9 +289,23 @@ searches more, smaller vectors. `fixed` trails on every ranking metric. Reproduc
 
 ## 9. Performance
 
-No load-test numbers exist yet (Phase 20/25). Per-request latency breakdown
-(`retrieval_latency_ms`, `generation_latency_ms`, `total_latency_ms`) is already
-returned by `POST /query` — see [docs/api.md](docs/api.md).
+Per-request latency breakdown (`retrieval_latency_ms`, `generation_latency_ms`,
+`total_latency_ms`) is returned by `POST /query` — see [docs/api.md](docs/api.md).
+
+**Phase 25 — load testing**: `scripts/load_test.py` runs a real `uvicorn` process
+(not `TestClient`) and fires concurrent requests at it with real HTTP clients. The
+honest result is not a clean bill of health: this project's default local config
+(single `uvicorn` process, no `--workers`, SQLite) handled 3 concurrent clients
+with zero errors but **collapsed between 3 and 5 concurrent clients** — 56-76%
+request failure/timeout rates at concurrency 5-10, and a genuinely pathological
+~4.85-hour near-total-failure run at concurrency 20 before this phase added a hard
+per-run deadline to the test script itself (a real bug the first run's own numbers
+caught). Root cause narrowed to "single-process thread-pool contention and/or
+SQLite's file-locking, most likely" but not conclusively isolated — see
+[ADR 0025](docs/decisions/0025-phase25-load-testing.md) for the full data and why
+further root-causing (needs a Postgres-backed run, which needs Docker or a live
+cloud deployment, neither available in this session) was left as a stated next
+step rather than guessed at.
 
 **Phase 20 — performance engineering**: `scripts/profile_pipeline.py` timed every
 real ingestion stage across the sample corpus — embedding compute dominates (32.2s
@@ -461,8 +475,19 @@ curl -X POST http://localhost:8000/query -H "Content-Type: application/json" \
   without one they degrade to a no-op (tested, not a silent failure) — no fabricated
   before/after quality number exists for this phase because producing one honestly
   needs a real LLM call this dev environment doesn't have configured (ADR 0008)
-- No caching, rate limiting, or auth (Phase 17/18)
-- Ingestion runs in-process via `BackgroundTasks`, not a real job queue (Phase 16)
+- Caching (Phase 17), rate limiting and auth (Phase 18) all exist now but are
+  opt-in and off by default (`CACHE_ENABLED`, `RATE_LIMIT_ENABLED`, `API_KEY`) —
+  a fresh clone with no `.env` changes still runs with none of them active
+- Ingestion defaults to in-process `BackgroundTasks`; a real Redis/RQ queue exists
+  as an opt-in alternative (`JOB_QUEUE_BACKEND=rq`, Phase 16) but isn't safe to
+  combine with a separate worker on a platform without shared disk storage between
+  services (see [ADR 0024](docs/decisions/0024-phase24-cloud-deployment.md))
+- This project's default local server config (single `uvicorn` process, SQLite)
+  handles ~3 concurrent clients cleanly but collapses (56-76%+ failure/timeout
+  rates) at 5-10 concurrent clients — measured, not assumed (Phase 25,
+  [ADR 0025](docs/decisions/0025-phase25-load-testing.md)); root cause narrowed
+  but not conclusively isolated without a Postgres-backed re-test this session
+  couldn't run
 - Evaluation dataset is 57 hand-authored questions (up from 12 in Phase 1-12), still
   short of the 100-300 target — this project's 8-document sample corpus genuinely runs
   out of distinct, non-duplicate facts to ask about well before 100 questions without
@@ -556,5 +581,5 @@ docker/, Dockerfile, docker-compose.yml
 | 22 — Testing | ✅ done — real coverage measured (95%, `pytest-cov`), genuine gaps found and closed, infra-gated gaps disclosed (ADR 0022) |
 | 23 — CI/CD | ✅ done — coverage gate (`--cov-fail-under=90`) + artifact, compose validation; found mypy has been silently failing outright (ADR 0023); deploy job is Phase 24, once real |
 | 24 — Cloud deployment | ⏳ partial — `render.yaml` Blueprint written and reasoned through (ADR 0024), never deployed (no cloud credentials in this session) |
-| 25 — Load testing | ⏳ |
+| 25 — Load testing | ✅ done — real finding: this config collapses between 3-5 concurrent clients (ADR 0025), not a clean bill of health |
 | 26–30 — Advanced/agentic RAG, dashboard, experiment tracking, final demo | ⏳ |

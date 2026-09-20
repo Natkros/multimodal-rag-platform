@@ -1,0 +1,21 @@
+{
+  "generated_at": "2026-09-20T02:33:31.342439+00:00",
+  "config": {
+    "concurrency": 20,
+    "requests_per_worker": 20
+  },
+  "total_requests": 400,
+  "wall_time_s": 17469.415,
+  "throughput_req_per_s": 0.02,
+  "error_count": 376,
+  "error_rate": 0.94,
+  "latency_ms": {
+    "min": 35.75,
+    "p50": 30007.24,
+    "p95": 1064364.27,
+    "p99": 16895855.1,
+    "max": 16895867.42,
+    "mean": 873156.99
+  },
+  "note": "POST /query excluded - no ANTHROPIC_API_KEY configured, every call would 503 regardless of retrieval outcome. Endpoints tested: GET /health, GET /documents, GET /documents/{id}/chunks. Run against SQLite + LocalVectorStore on this dev machine's hardware, single uvicorn process/worker - not representative of the Postgres + cloud setup in render.yaml. See docs/decisions/0025-phase25-load-testing.md."
+}
