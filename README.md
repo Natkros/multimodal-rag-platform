@@ -14,6 +14,25 @@ retrieval, and answers natural-language questions with page-level citations, abs
 explicitly when it lacks evidence rather than guessing. It is built as a real service
 (FastAPI + Postgres + a pluggable vector store), not a notebook.
 
+### Screenshots
+
+Captured live from the actual Streamlit frontend (`frontend/app.py`) running against a
+real local API instance with the full 13-document sample corpus indexed.
+
+**Documents tab** — every ingested document with its real chunk count:
+
+![Documents tab showing all 13 indexed sample documents with chunk counts](screenshots/frontend-documents.png)
+
+**Ask tab** — submitting a question against the indexed corpus:
+
+![Ask tab with a question typed in, ready to submit against the indexed corpus](screenshots/frontend-ask.png)
+
+**Admin tab** — live Prometheus-backed metrics (Phase 19/28), including a real `503` from
+`/query` because no `ANTHROPIC_API_KEY` was configured for this capture — the platform
+fails closed rather than fabricating an answer, exactly as documented in [§14](#14-limitations-honest-current):
+
+![Admin tab showing live HTTP request metrics by route and status, including a real 503 on /query](screenshots/frontend-admin.png)
+
 ## 2. Architecture
 
 See [docs/architecture.md](docs/architecture.md) for the full system, sequence,
